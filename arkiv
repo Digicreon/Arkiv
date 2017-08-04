@@ -81,6 +81,42 @@ main_usage() {
 	exit 0
 }
 
+# Create the content of the configuration file
+_create_config() {
+	RESULT="CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
+CONF_LOCAL_PATH=$CONF_LOCAL_PATH
+CONF_SRC=$CONF_SRC
+CONF_MYSQL=$CONF_MYSQL"
+	if [ "$CONF_MYSQL" = "yes" ]; then
+		RESULT="$RESULT
+CONF_MYSQL_HOST=$CONF_MYSQL_HOST
+CONF_MYSQL_USER=$CONF_MYSQL_USER"
+		if [ "$1" = "hide" ]; then
+			RESULT="$RESULT
+CONF_MYSQL_PWD=___HIDDEN_PASSWORD___"
+		else
+			RESULT="$RESULT
+CONF_MYSQL_PWD=$CONF_MYSQL_PWD"
+		fi
+		RESULT="$RESULT
+CONF_MYSQL_ALL_DATABASES=$CONF_MYSQL_ALL_DATABASES"
+		if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
+			RESULT="$RESULT
+CONF_MYSQL_DATABASES=$CONF_MYSQL_DATABASES"
+		fi
+	fi
+	RESULT="$RESULT
+CONF_AWS_S3=$CONF_AWS_S3"
+	if [ "$CONF_AWS_S3" = "yes" ]; then
+		RESULT="$RESULT
+CONF_S3_BUCKET=$CONF_S3_BUCKET"
+	fi
+	RESULT="$RESULT
+CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY
+CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
+	echo "$RESULT"
+}
+
 # Manage configuration
 main_config() {
 	# local host
@@ -109,21 +145,17 @@ main_config() {
 		chmod 600 $CONF_LOCAL_PATH
 	fi
 	# path to backup
-	read -p " $(ansi fg yellow)Paths to backup? (separated with spaces)$(ansi reset) $(ansi dim)(example: $(ansi reset)/home /etc$(ansi dim))$(ansi reset) " ANSWER
+	read -p " $(ansi fg yellow)Paths to backup? (separated with spaces) [/etc /home]$(ansi reset) " ANSWER
 	CONF_SRC=$(trim "$ANSWER")
 	if [ "$CONF_SRC" = "" ]; then
-		read -p " $(ansi fg red)Are you sure that you don't want to backup any file? [y/N] $(ansi reset)" ANSWER
-		if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
-			echo " $(ansi fg red)⚠ Nothing to backup. ABORT$(ansi reset)"
-			exit 1
-		fi
+		CONF_SRC="/etc /home"
 	fi
 	# MySQL
 	CONF_MYSQL="no"
 	read -p " $(ansi fg yellow)Backup MySQL databases? [Y/n]$(ansi reset) " ANSWER
 	if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
 		CONF_MYSQL="yes"
-		read -p " $(ansi fg yellow)MySQL hostname? (leave empty for localhost)$(ansi reset) " ANSWER
+		read -p " $(ansi fg yellow)MySQL hostname? [localhost]$(ansi reset) " ANSWER
 		CONF_MYSQL_HOST=$(trim "$ANSWER")
 		if [ "$CONF_MYSQL_HOST" = "" ]; then
 			CONF_MYSQL_HOST="localhost"
@@ -163,7 +195,7 @@ main_config() {
 		echo "AWS_S3=yes" >> ~/.arkiv
 		read -p " $(ansi fg yellow)Bucket name?$(ansi reset) " ANSWER
 		if [ "$ANSWER" = "" ]; then
-			echo "$(ansi fg red) ⚠ Bad bucket name$(ansi reset)"
+			echo " $(ansi fg red)⚠ Bad bucket name$(ansi reset)"
 			exit 1
 		fi
 		CONF_S3_BUCKET=$(trim "$ANSWER")
@@ -189,31 +221,11 @@ main_config() {
 		fi
 	fi
 	# create result
-	RESULT="CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
-CONF_LOCAL_PATH=$CONF_LOCAL_PATH
-CONF_SRC=$CONF_SRC
-CONF_MYSQL=$CONF_MYSQL"
-	if [ "$CONF_MYSQL" = "yes" ]; then
-		RESULT="$RESULT
-CONF_MYSQL_HOST=$CONF_MYSQL_HOST
-CONF_MYSQL_USER=$CONF_MYSQL_USER
-CONF_MYSQL_PWD=$CONF_MYSQL_PWD
-CONF_MYSQL_ALL_DATABASES=$CONF_MYSQL_ALL_DATABASES"
-		if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
-			RESULT="$RESULT\nCONF_MYSQL_DATABASES=$CONF_MYSQL_DATABASES"
-		fi
-	fi
-	RESULT="$RESULT\nCONF_AWS_S3=$CONF_AWS_S3"
-	if [ "$CONF_AWS_S3" = "yes" ]; then
-		RESULT="$RESULT\nCONF_S3_BUCKET=$CONF_S3_BUCKET"
-	fi
-	RESULT="$RESULT
-CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY
-CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
+	RESULT="$(_create_config hide)"
 	# display result
 	echo
 	echo " $(ansi fg yellow)HERE IS THE CONTENT THAT WILL BE WRITTEN$(ansi reset)"
-	echo "$(ansi rev)$RESULT$(ansi reset)"
+	echo "$(ansi dim)$RESULT$(ansi reset)"
 	echo
 	# write content
 	read -p " $(ansi fg yellow)Ready to erase file '$(ansi reset)~/.arkiv$(ansi fg yellow)' and rebuild it? [y/N]$(ansi reset) " ANSWER
@@ -228,7 +240,8 @@ CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
 		echo " $(ansi fg red)⚠ Unable to manage the file '$(ansi reset)~/.arkiv$(ansi fg red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
-	echo $RESULT >> ~/.arkiv
+	RESULT="$(_create_config)"
+	echo "$RESULT" >> ~/.arkiv
 	# crontab
 	IN_CRONTAB=`crontab -l 2>/dev/null | grep arkiv | wc -l`
 	if [ "$IN_CRONTAB" = "0" ]; then
@@ -246,7 +259,7 @@ CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
 				echo " $(ansi fg red)⚠ Unable to find the file '$(ansi reset)$ARKIV_EXEC_PATH/arkiv$(ansi fg red)'. ABORT$(ansi reset)"
 				exit 1
 			fi
-			echo " $(ansi fg red)⚠ The execution is set to be everyday at midnight. You can change it by editing the Crontab.$(ansi reset)"
+			echo " $(ansi fg red)⚠ The execution is set to everyday at midnight. You can change it by editing the Crontab.$(ansi reset)"
 			(crontab -l 2>/dev/null; echo; echo "# ARKIV backup"; echo "0 0 * * * $ARKIV_EXEC_PATH/arkiv") | crontab -
 		fi
 	fi
