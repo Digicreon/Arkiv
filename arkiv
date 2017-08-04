@@ -97,7 +97,7 @@ main_config() {
 		CONF_LOCAL_PATH="/var/archives"
 	fi
 	if [ ! -d $CONF_LOCAL_PATH ]; then
-		read -p " $(ansi fg red)⚠ Directory '$ANSWER' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
+		read -p " $(ansi fg red)⚠ Directory '$CONF_LOCAL_PATH' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			echo " $(ansi fg red)⚠ ABORT$(ansi reset)"
 			exit 1
@@ -106,6 +106,7 @@ main_config() {
 			echo " $(ansi fg red)⚠ Unable to create directory. ABORT$(ansi reset)"
 			exit 1
 		fi
+		chmod 600 $CONF_LOCAL_PATH
 	fi
 	# path to backup
 	read -p " $(ansi fg yellow)Paths to backup? (separated with spaces)$(ansi reset) $(ansi dim)(example: $(ansi reset)/home /etc$(ansi dim))$(ansi reset) " ANSWER
@@ -127,11 +128,10 @@ main_config() {
 		if [ "$CONF_MYSQL_HOST" = "" ]; then
 			CONF_MYSQL_HOST="localhost"
 		fi
-		read -p " $(ansi fg yellow)MySQL user?$(ansi reset) $(ansi dim)(example: $(ansi reset)root$(ansi dim))$(ansi reset) " ANSWER
+		read -p " $(ansi fg yellow)MySQL user? [root] $(ansi reset) " ANSWER
 		CONF_MYSQL_USER=$(trim "$ANSWER")
 		if [ "$CONF_MYSQL_USER" = "" ]; then
-			echo " $(ansi fg red)⚠ Empty user name. ABORT$(ansi reset)"
-			exit 1
+			CONF_MYSQL_USER="root"
 		fi
 		read -s -p " $(ansi fg yellow)MySQL password?$(ansi reset) " ANSWER
 		CONF_MYSQL_PWD=$(trim "$ANSWER")
@@ -140,11 +140,17 @@ main_config() {
 			exit 1
 		fi
 		echo
-		read -p " $(ansi fg yellow)List of databases? (separated with spaces)$(ansi reset) " ANSWER
-		CONF_MYSQL_BASES=$(trim "$ANSWER")
-		if [ "$CONF_MYSQL_BASES" = "" ]; then
-			echo " $(ansi fg red)⚠ No database to backup. ABORT$(ansi reset)"
-			exit 1
+		read -p " $(ansi fg yellow)Do you want to backup all databases readable by this user? [Y/n] (otherwise you will have to give a list of database names)$(ansi reset) " ANSWER
+		ANSWER=$(trim "$ANSWER")
+		CONF_MYSQL_ALL_DATABASES="yes"
+		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+			CONF_MYSQL_ALL_DATABASES="no"
+			read -p " $(ansi fg yellow)List of databases? (separated with spaces)$(ansi reset) " ANSWER
+			CONF_MYSQL_DATABASES=$(trim "$ANSWER")
+			if [ "$CONF_MYSQL_DATABASES" = "" ]; then
+				echo " $(ansi fg red)⚠ No database to backup. ABORT$(ansi reset)"
+				exit 1
+			fi
 		fi
 	fi
 	# Amazon S3
@@ -182,8 +188,36 @@ main_config() {
 			exit 1
 		fi
 	fi
-	# write result
+	# create result
+	RESULT="CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
+CONF_LOCAL_PATH=$CONF_LOCAL_PATH
+CONF_SRC=$CONF_SRC
+CONF_MYSQL=$CONF_MYSQL"
+	if [ "$CONF_MYSQL" = "yes" ]; then
+		RESULT="$RESULT
+CONF_MYSQL_HOST=$CONF_MYSQL_HOST
+CONF_MYSQL_USER=$CONF_MYSQL_USER
+CONF_MYSQL_PWD=$CONF_MYSQL_PWD
+CONF_MYSQL_ALL_DATABASES=$CONF_MYSQL_ALL_DATABASES"
+		if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
+			RESULT="$RESULT\nCONF_MYSQL_DATABASES=$CONF_MYSQL_DATABASES"
+		fi
+	fi
+	RESULT="$RESULT\nCONF_AWS_S3=$CONF_AWS_S3"
+	if [ "$CONF_AWS_S3" = "yes" ]; then
+		RESULT="$RESULT\nCONF_S3_BUCKET=$CONF_S3_BUCKET"
+	fi
+	RESULT="$RESULT
+CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY
+CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
+	# display result
+	echo
+	echo " $(ansi fg yellow)HERE IS THE CONTENT THAT WILL BE WRITTEN$(ansi reset)"
+	echo "$(ansi rev)$RESULT$(ansi reset)"
+	echo
+	# write content
 	read -p " $(ansi fg yellow)Ready to erase file '$(ansi reset)~/.arkiv$(ansi fg yellow)' and rebuild it? [y/N]$(ansi reset) " ANSWER
+	ANSWER=$(trim "$ANSWER")
 	if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
 		echo " $(ansi fg red)⚠ ABORT$(ansi reset)"
 		exit 1
@@ -194,22 +228,28 @@ main_config() {
 		echo " $(ansi fg red)⚠ Unable to manage the file '$(ansi reset)~/.arkiv$(ansi fg red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
-	echo "CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME" >> ~/.arkiv
-	echo "CONF_LOCAL_PATH=$CONF_LOCAL_PATH" >> ~/.arkiv
-	echo "CONF_SRC=$CONF_SRC" >> ~/.arkiv
-	echo "CONF_MYSQL=$CONF_MYSQL" >> ~/.arkiv
-	if [ "$CONF_MYSQL" = "yes" ]; then
-		echo "CONF_MYSQL_HOST=$CONF_MYSQL_HOST" >> ~/.arkiv
-		echo "CONF_MYSQL_USER=$CONF_MYSQL_USER" >> ~/.arkiv
-		echo "CONF_MYSQL_PWD=$CONF_MYSQL_PWD" >> ~/.arkiv
-		echo "CONF_MYSQL_BASES=$CONF_MYSQL_BASES" >> ~/.arkiv
+	echo $RESULT >> ~/.arkiv
+	# crontab
+	IN_CRONTAB=`crontab -l 2>/dev/null | grep arkiv | wc -l`
+	if [ "$IN_CRONTAB" = "0" ]; then
+		echo
+		read -p " $(ansi fg yellow)Do you want to add execution in Crontab? [Y/n]$(ansi reset) " ANSWER
+		ANSWER=$(trim "$ANSWER")
+		if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
+			ARKIV_EXEC_PATH="${BASH_SOURCE%/*}"
+			read -p " $(ansi fg yellow)Path to the$(ansi reset) Arkiv $(ansi fg yellow)executable program [$ARKIV_EXEC_PATH]$(ansi reset) " ANSWER
+			ANSWER=$(trim "$ANSWER")
+			if [ "$ANSWER" != "" ]; then
+				ARKIV_EXEC_PATH="$ANSWER"
+			fi
+			if [ ! -x "$ARKIV_EXEC_PATH/arkiv" ]; then
+				echo " $(ansi fg red)⚠ Unable to find the file '$(ansi reset)$ARKIV_EXEC_PATH/arkiv$(ansi fg red)'. ABORT$(ansi reset)"
+				exit 1
+			fi
+			echo " $(ansi fg red)⚠ The execution is set to be everyday at midnight. You can change it by editing the Crontab.$(ansi reset)"
+			(crontab -l 2>/dev/null; echo; echo "# ARKIV backup"; echo "0 0 * * * $ARKIV_EXEC_PATH/arkiv") | crontab -
+		fi
 	fi
-	echo "CONF_AWS_S3=$CONF_AWS_S3" >> ~/.arkiv
-	if [ "$CONF_AWS_S3" = "yes" ]; then
-		echo "CONF_S3_BUCKET=$CONF_S3_BUCKET" >> ~/.arkiv
-	fi
-	echo "CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY" >> ~/.arkiv
-	echo "CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY" >> ~/.arkiv
 }
 
 # Backup files, archive and purge
@@ -237,7 +277,10 @@ exec_process() {
 	# backup mysql
 	if [ "$CONF_MYSQL" = "yes" ]; then
 		myecho "$(ansi rev)Backup databases$(ansi reset)"
-		for DB_NAME in $CONF_BASES; do
+		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
+			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
+		fi
+		for DB_NAME in $CONF_MYSQL_DATABASES; do
 			myecho "$(ansi bold)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > $CONF_LOCAL_PATH/$CURRENT_DATE/$DB_NAME.sql
 			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
