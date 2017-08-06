@@ -19,6 +19,15 @@ trim() {
 	echo $RESULT
 }
 
+# filenamize()
+# Convert a string that contains a path to a file, and return a string suitable as a file name.
+# Replace slashes and spaces by dashes.
+# @param	string	The string to modify.
+filenamize() {
+	RESULT=$(echo "$1" | sed 's/[[:space:]]\+/-/g' | sed 's/\//-/g' | sed -e 's/^-*//' -e 's/-*$//' | sed 's/-\+/-/g')
+	echo $RESULT
+}
+
 # myecho()
 # Write string to stdout only if the program is attached to a terminal.
 # @param	string	The string to write.
@@ -312,13 +321,19 @@ exec_process() {
 	# current date
 	CURRENT_DATE=`date +%Y-%m-%d`
 	mkdir -p $CONF_BACKUP_PATH/$CURRENT_DATE
+	# list of created files
+	FILESLIST=""
 	# backup files
 	if [ "$CONF_SRC" != ""]; then
 		myecho "$(ansi rev)Backup files$(ansi reset)"
+		# loop on paths to backup
 		for SRC in $CONF_SRC; do
 			myecho "$(ansi bold)Backup path '$(ansi reset)$SRC$(ansi bold)'$(ansi reset)"
-			FILENAME=$(echo $SRC | sed 's/\//-/g' | sed -e 's/^-*//' -e 's/-*$//')
-			tar czf $CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME.tgz $SRC
+			FILENAME=$(filenamize "$SRC")
+			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
+			tar czf "$FILEPATH.tgz" "$SRC"
+			# add to list
+			FILESLIST="$FILESLIST $FILEPATH.tgz"
 		done
 		myecho
 	fi
@@ -330,13 +345,24 @@ exec_process() {
 		fi
 		for DB_NAME in $CONF_MYSQL_DATABASES; do
 			myecho "$(ansi bold)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
-			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > $CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME.sql
+			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
+			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
-			gzip $CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME.sql
+			gzip $DEST.sql
+			# add to list
+			FILESLIST="$FILESLIST $FILEPATH.sql.gz"
 		done
 		myecho
 	fi
-	# archive
+	# create hashes
+	for FILE in $FILESLIST; do
+		if `which sha512sum`; then
+			sha512sum "$FILE" > "$FILE.sha512"
+		elif `which md5sum`; then
+			md5sum "$FILE" > "$FILE.md5"
+		fi
+	done
+	# archive on Amazon S3
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		myecho "$(ansi rev)Archive on Amazon S3$(ansi reset)"
 		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE

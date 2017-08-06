@@ -1,7 +1,7 @@
 Arkiv
 =====
 
-Simple file archiver, designed to backup local files and MySQL databases and archive them on Amazon S3.
+Simple file archiver, designed to backup local files and MySQL databases, and archive them on Amazon S3.
 
 Every day:
 1. Create backup files from local paths.
@@ -18,12 +18,12 @@ If you want to archive the generated backup files on Amazon S3, you need to do 3
 - Create an [IAM](https://aws.amazon.com/iam/) user with read-write access to this bucket.
 - Install the [AWS-CLI](https://aws.amazon.com/cli/) program and [configure it](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html).
 
-Install on Ubuntu:
+Install AWS-CLI on Ubuntu:
 ```shell
 # apt-get install awscli
 ```
 
-Configuration of the program:
+Configuration of the program (you will be asked for the AWS user's access key and secret key):
 ```shell
 # aws configure
 ```
