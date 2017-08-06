@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # ARKIV
 #
@@ -148,6 +148,12 @@ CONF_AWS_S3=$CONF_AWS_S3"
 CONF_S3_BUCKET=$CONF_S3_BUCKET"
 	fi
 	RESULT="$RESULT
+CONF_AWS_GLACIER=$CONF_AWS_GLACIER"
+	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
+		RESULT="$RESULT
+CONF_GLACIER_VAULT=$CONF_GLACIER_VAULT"
+	fi
+	RESULT="$RESULT
 CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY
 CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
 	echo "$RESULT"
@@ -228,20 +234,28 @@ main_config() {
 			fi
 		fi
 	fi
-	# Amazon S3
+	# Amazon S3 + Glacier
+	CONF_AWS_S3="no"
+	CONF_AWS_GLACIER="no"
 	read -p " $(ansi fg yellow)Archive to Amazon S3? [Y/n]$(ansi reset) " ANSWER
-	if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
-		CONF_AWS_S3="no"
-		echo "AWS_S3=no" >> ~/.arkiv
-	else
+	if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
 		CONF_AWS_S3="yes"
-		echo "AWS_S3=yes" >> ~/.arkiv
-		read -p " $(ansi fg yellow)Bucket name?$(ansi reset) " ANSWER
-		if [ "$ANSWER" = "" ]; then
-			echo " $(ansi fg red)⚠ Bad bucket name$(ansi reset)"
+		read -p " $(ansi fg yellow)S3 Bucket name?$(ansi reset) " ANSWER
+		CONF_S3_BUCKET=$(trim "$ANSWER")
+		if [ "$CONF_S3_BUCKET" = "" ]; then
+			echo " $(ansi fg red)⚠ Empty bucket name. ABORT$(ansi reset)"
 			exit 1
 		fi
-		CONF_S3_BUCKET=$(trim "$ANSWER")
+		read -p " $(ansi fg yellow)Archive to Amazon Glacier? [Y/n]$(ansi reset) " ANSWER
+		if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
+			CONF_AWS_GLACIER="yes"
+			read -p " $(ansi fg yellow)Glacier Vault name?$(ansi reset) " ANSWER
+			CONF_GLACIER_VAULT=$(trim "$ANSWER")
+			if [ "$CONF_GLACIER_VAULT" = "" ]; then
+				echo " $(ansi fg red)⚠ Empty vault name. ABORT$(ansi reset)"
+				exit 1
+			fi
+		fi
 	fi
 	# local purge
 	read -p " $(ansi fg yellow)Delay for local purge?$(ansi reset) $(ansi dim)(examples: \"$(ansi reset)3 days$(ansi dim)\" \"$(ansi reset)2 weeks$(ansi dim)\" \"$(ansi reset)2 months$(ansi dim)\")$(ansi reset) " ANSWER
@@ -313,14 +327,18 @@ main_config() {
 exec_process() {
 	# configuration
 	if [ ! -r ~/.arkiv ]; then
-		myecho "$(ansi fg red) ⚠ Unable to read file '$(ansi reset)~/.arkiv$(ansi fg red)'. ABORT$(ansi reset)"
+		myecho "$(ansi fg red)⚠ Unable to read file '$(ansi reset)~/.arkiv$(ansi fg red)'. ABORT$(ansi reset)"
 		exit 1
 	else
 		. ~/.arkiv
 	fi
-	# current date
+	# create destination directory
 	CURRENT_DATE=`date +%Y-%m-%d`
-	mkdir -p $CONF_BACKUP_PATH/$CURRENT_DATE
+	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_DATE"
+	if [ $? -ne 0 ]; then
+		myecho "$(ansi fg red)⚠ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi fg red)'. ABORT$(ansi reset)"
+		exit 1
+	fi
 	# list of created files
 	FILESLIST=""
 	# backup files
@@ -332,6 +350,9 @@ exec_process() {
 			FILENAME=$(filenamize "$SRC")
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
 			tar czf "$FILEPATH.tgz" "$SRC"
+			if [ $? -ne 0 ]; then
+				myecho "$(ansi fg yellow)⚠ Unable to tar+gzip path '$SRC' to '$FILEPATH.tgz'.$(ansi reset)"
+			fi
 			# add to list
 			FILESLIST="$FILESLIST $FILEPATH.tgz"
 		done
@@ -342,46 +363,80 @@ exec_process() {
 		myecho "$(ansi rev)Backup databases$(ansi reset)"
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
 			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
+			if [ $? -ne 0]; then
+				myecho "$(ansi fg yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
+			fi
 		fi
-		for DB_NAME in $CONF_MYSQL_DATABASES; do
+		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
 			myecho "$(ansi bold)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
-			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
-			gzip $DEST.sql
-			# add to list
-			FILESLIST="$FILESLIST $FILEPATH.sql.gz"
+			if [ $? -ne 0 ]; then
+				myecho "$(ansi fg yellow)⚠ Unable to dump database '$DB_NAME'.$(ansi reset)"
+				continue
+			fi
+			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'.$(ansi reset)"
+			gzip $FILEPATH.sql
+			if [ $? -ne 0 ]; then
+				myecho "$(ansi fg yellow)⚠ Unable to gzip file '$FILEPATH.sql'.$(ansi reset)"
+				# add to list
+				FILESLIST="$FILESLIST $FILEPATH.sql"
+			else
+				# add to list
+				FILESLIST="$FILESLIST $FILEPATH.sql.gz"
+			fi
 		done
 		myecho
 	fi
-	# create hashes
-	for FILE in $FILESLIST; do
-		if `which sha512sum`; then
-			sha512sum "$FILE" > "$FILE.sha512"
-		elif `which md5sum`; then
-			md5sum "$FILE" > "$FILE.md5"
+	# compute checksums
+	sha256sum "$FILESLIST" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
+	if [ $? -ne 0 ]; then
+		myecho "$(ansi fg yellow)⚠ Unable to create SHA256 sum file '$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums'.$(ansi reset)"
+	fi
+	# archive on Amazon Glacier
+	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
+		myecho "$(ansi rev)Archive on Amazon Glacier$(ansi reset)"
+		aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums.glacier.json"
+		if [ $? -ne 0 ]; then
+			myecho "$(ansi fg yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi fg red)' to Amazon Glacier.$(ansi reset)"
 		fi
-	done
+		for FILE in "$FILESLIST"; do
+			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
+			if [ $? -ne 0 ]; then
+				myecho "$(ansi fg yellow)⚠ Unable to send file '$FILE' to Amazon Glacier.$(ansi reset)"
+			fi
+		done
+	fi
 	# archive on Amazon S3
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		myecho "$(ansi rev)Archive on Amazon S3$(ansi reset)"
 		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE
+		if [ $? -ne 0 ]; then
+			myecho "$(ansi fg yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi fg red)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE$(ansi fg red)'.$(ansi reset)"
+		fi
 		myecho
 	fi
 	# purge local files
 	if [ "$CONF_LOCAL_PURGE_DELAY" != "" ]; then
 		myecho "$(ansi rev)Purge local files$(ansi reset)"
 		PURGE_DATE=`date --date="$CONF_LOCAL_PURGE_DELAY ago" +%Y-%m-%d`
-		rm -rf $CONF_BACKUP_PATH/$PURGE_DATE
+		rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
+		if [ $? -ne 0 ]; then
+			myecho "$(ansi fg yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi fg red)'.$(ansi reset)"
+		fi
 	fi
 	# purge files on Amazon S3
 	if [ "$CONF_S3_PURGE_DELAY" != "" ]; then
 		myecho "$(ansi rev)Purge files on Amazon S3$(ansi reset)"
 		PURGE_DATE=`date --date="$CONF_S3_PURGE_DELAY ago" +%Y-%m-%d`
-		aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/ --recursive
+		aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
+		if [ $? -ne 0 ]; then
+			myecho "$(ansi fg yellow)⚠ Unable to purge files in directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi fg red)' on Amazon S3.$(ansi reset)"
+		fi
 	fi
 }
 
+# management of the quiet mode
 if [ "$2" = "--quiet" ]; then
 	QUIET_MODE=1
 fi
