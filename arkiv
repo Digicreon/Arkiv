@@ -1,22 +1,45 @@
 #!/bin/bash
 
+# ARKIV
+#
+# Simple file archiver, designed to backup local files and MySQL databases and archive them on Amazon S3.
+#
+# Source code and documentation: https://github.com/Amaury/Arkiv
+#
+# © 2017, Amaury Bouchard <amaury@amaury.net>
+
 # quiet mode
 QUIET_MODE=0
 
-# Remove spaces at the beginning and at the end of a character string
+# trim()
+# Remove spaces at the beginning and at the end of a character string.
+# @param	string	The string to trim.
 trim() {
 	RESULT=$(echo "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 	echo $RESULT
 }
 
-# Write string to stdout only if the program is attached to a terminal
+# myecho()
+# Write string to stdout only if the program is attached to a terminal.
+# @param	string	The string to write.
 myecho() {
 	if [ -t 1 ] && [ "$QUIET_MODE" = "0" ]; then
 		echo "$1"
 	fi
 }
 
-# Write ANSI-compatible statements
+# ansi()
+# Write ANSI-compatible statements.
+# @param	string	Command:
+#			- reset: Remove all decoration.
+#			- bold:  Write text in bold.
+#			- dim:   Write faint text.
+#			- rev:   Write text in reverse video.
+#			- under: Write underlined text.
+#			- fg:    Set foreground color.
+#			- bg:    Set background color.
+# @param	string	Color (if the command was 'fg' or 'bg').
+#			Could be: black, red, green, yellow, blue, magenta, cyan, white
 ansi() {
 	if [ "$1" = "reset" ]; then
 		tput sgr0
@@ -69,7 +92,8 @@ ansi() {
 	fi
 }
 
-# Show help and exit
+# main_usage()
+# Show help and exit.
 main_usage() {
 	myecho "$(ansi bold)arkiv$(ansi reset) help|config|exec $(ansi dim)[--quiet]$(ansi reset)"
 	myecho
@@ -81,10 +105,13 @@ main_usage() {
 	exit 0
 }
 
-# Create the content of the configuration file
+# _create_config()
+# Create the content of the configuration file.
+# Uses the global variables defined elsewhere ($CONF_LOCAL_HOSTNAME, $CONF_BACKUP_PATH, etc.).
+# @param	string	(optional) Visibility. Replace the MySQL password by an informative message if this parameter is set to "hide".
 _create_config() {
 	RESULT="CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
-CONF_LOCAL_PATH=$CONF_LOCAL_PATH
+CONF_BACKUP_PATH=$CONF_BACKUP_PATH
 CONF_SRC=$CONF_SRC
 CONF_MYSQL=$CONF_MYSQL"
 	if [ "$CONF_MYSQL" = "yes" ]; then
@@ -117,10 +144,14 @@ CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
 	echo "$RESULT"
 }
 
-# Manage configuration
+# main_config()
+# Manage configuration.
 main_config() {
 	# local host
 	HOST=`hostname`
+	if [ "$HOST" = "" ]; then
+		HOST="localhost"
+	fi
 	read -p " $(ansi fg yellow)Local host name? [$HOST]$(ansi reset) " ANSWER
 	CONF_LOCAL_HOSTNAME=$(trim "$ANSWER")
 	if [ "$CONF_LOCAL_HOSTNAME" = "" ]; then
@@ -128,21 +159,24 @@ main_config() {
 	fi
 	# local archive path
 	read -p " $(ansi fg yellow)Path to local archives? [$(ansi reset)/var/archives$(ansi fg yellow)]$(ansi reset) " ANSWER
-	CONF_LOCAL_PATH=$(trim "$ANSWER")
-	if [ "$CONF_LOCAL_PATH" = "" ]; then
-		CONF_LOCAL_PATH="/var/archives"
+	CONF_BACKUP_PATH=$(trim "$ANSWER")
+	if [ "$CONF_BACKUP_PATH" = "" ]; then
+		CONF_BACKUP_PATH="/var/archives"
 	fi
-	if [ ! -d $CONF_LOCAL_PATH ]; then
-		read -p " $(ansi fg red)⚠ Directory '$CONF_LOCAL_PATH' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
+	if [ ! -d $CONF_BACKUP_PATH ]; then
+		read -p " $(ansi fg yellow)Directory '$CONF_BACKUP_PATH' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			echo " $(ansi fg red)⚠ ABORT$(ansi reset)"
 			exit 1
 		fi
-		if ! mkdir $CONF_LOCAL_PATH; then
+		if ! mkdir $CONF_BACKUP_PATH; then
 			echo " $(ansi fg red)⚠ Unable to create directory. ABORT$(ansi reset)"
 			exit 1
 		fi
-		chmod 600 $CONF_LOCAL_PATH
+		chmod 600 $CONF_BACKUP_PATH
+	elif [ ! -w $CONF_BACKUP_PATH ]; then
+		echo " $(ansi fg red)⚠ Directory '$CONF_BACKUP_PATH' exists but is not writable. ABORT$(ansi reset)"
+		exit 1
 	fi
 	# path to backup
 	read -p " $(ansi fg yellow)Paths to backup? (separated with spaces) [/etc /home]$(ansi reset) " ANSWER
@@ -249,7 +283,7 @@ main_config() {
 		read -p " $(ansi fg yellow)Do you want to add execution in Crontab? [Y/n]$(ansi reset) " ANSWER
 		ANSWER=$(trim "$ANSWER")
 		if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
-			ARKIV_EXEC_PATH="${BASH_SOURCE%/*}"
+			ARKIV_EXEC_PATH="$PWD"
 			read -p " $(ansi fg yellow)Path to the$(ansi reset) Arkiv $(ansi fg yellow)executable program [$ARKIV_EXEC_PATH]$(ansi reset) " ANSWER
 			ANSWER=$(trim "$ANSWER")
 			if [ "$ANSWER" != "" ]; then
@@ -265,7 +299,8 @@ main_config() {
 	fi
 }
 
-# Backup files, archive and purge
+# exec_process()
+# Backup files, archive and purge.
 exec_process() {
 	# configuration
 	if [ ! -r ~/.arkiv ]; then
@@ -276,14 +311,14 @@ exec_process() {
 	fi
 	# current date
 	CURRENT_DATE=`date +%Y-%m-%d`
-	mkdir -p $CONF_LOCAL_PATH/$CURRENT_DATE
+	mkdir -p $CONF_BACKUP_PATH/$CURRENT_DATE
 	# backup files
 	if [ "$CONF_SRC" != ""]; then
 		myecho "$(ansi rev)Backup files$(ansi reset)"
 		for SRC in $CONF_SRC; do
 			myecho "$(ansi bold)Backup path '$(ansi reset)$SRC$(ansi bold)'$(ansi reset)"
 			FILENAME=$(echo $SRC | sed 's/\//-/g' | sed -e 's/^-*//' -e 's/-*$//')
-			tar czf $CONF_LOCAL_PATH/$CURRENT_DATE/$FILENAME.tgz $SRC
+			tar czf $CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME.tgz $SRC
 		done
 		myecho
 	fi
@@ -295,23 +330,23 @@ exec_process() {
 		fi
 		for DB_NAME in $CONF_MYSQL_DATABASES; do
 			myecho "$(ansi bold)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
-			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > $CONF_LOCAL_PATH/$CURRENT_DATE/$DB_NAME.sql
+			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > $CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME.sql
 			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
-			gzip $CONF_LOCAL_PATH/$CURRENT_DATE/$DB_NAME.sql
+			gzip $CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME.sql
 		done
 		myecho
 	fi
 	# archive
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		myecho "$(ansi rev)Archive on Amazon S3$(ansi reset)"
-		aws s3 sync $CONF_LOCAL_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE
+		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE
 		myecho
 	fi
 	# purge local files
 	if [ "$CONF_LOCAL_PURGE_DELAY" != "" ]; then
 		myecho "$(ansi rev)Purge local files$(ansi reset)"
 		PURGE_DATE=`date --date="$CONF_LOCAL_PURGE_DELAY ago" +%Y-%m-%d`
-		rm -rf $CONF_LOCAL_PATH/$PURGE_DATE
+		rm -rf $CONF_BACKUP_PATH/$PURGE_DATE
 	fi
 	# purge files on Amazon S3
 	if [ "$CONF_S3_PURGE_DELAY" != "" ]; then
