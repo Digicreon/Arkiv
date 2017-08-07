@@ -38,15 +38,16 @@ Prerequisites
 
 ### Basic
 
-Several tool are needed by Arkiv to work correctly. Most of them are usually installed by default on every Unix/Linux distributions.
+Several tool are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
 - A not-so-old Shell interpreter (like [`dash`](https://en.wikipedia.org/wiki/Almquist_shell) or [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell))) available on `/bin/sh`.
 - [`tar`](https://en.wikipedia.org/wiki/Tar_(computing))
 - [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz)
 - [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum)
+- [`tput`](https://en.wikipedia.org/wiki/Tput)
 
 To install these tools on Ubuntu:
 ```shell
-# apt-get install tar gzip bzip2 xz-utils coreutils
+# apt-get install tar gzip bzip2 xz-utils coreutils ncurses-bin
 ```
 
 ### MySQL

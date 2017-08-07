@@ -8,8 +8,9 @@
 #
 # © 2017, Amaury Bouchard <amaury@amaury.net>
 
-# quiet mode
-QUIET_MODE=0
+# noansi mode
+# @see	main_usage()
+NOANSI_MODE=0
 
 # trim()
 # Remove spaces at the beginning and at the end of a character string.
@@ -32,7 +33,7 @@ filenamize() {
 # Write string to stdout only if the program is attached to a terminal.
 # @param	string	The string to write.
 myecho() {
-	if [ -t 1 ] && [ "$QUIET_MODE" = "0" ]; then
+	if [ -t 1 ]; then
 		echo "$1"
 	fi
 }
@@ -48,9 +49,11 @@ myecho() {
 #			- fg:    Set foreground color.
 #			- bg:    Set background color.
 # @param	string	Color (if the command was 'fg' or 'bg').
-#			Could be: black, red, green, yellow, blue, magenta, cyan, white
+#			Could be: black, red, green, yellow, blue, magenta, cyan, white, default
 ansi() {
-	if [ "$1" = "reset" ]; then
+	if [ "$NOANSI_MODE" = "1" ]; then
+		return
+	elif [ "$1" = "reset" ]; then
 		tput sgr0
 	elif [ "$1" = "bold" ]; then
 		tput bold
@@ -78,6 +81,8 @@ ansi() {
 			;;
 			"white")	tput setaf 7
 			;;
+			"default")	tput setaf 9
+			;;
 		esac
 	elif [ "$1" = "bg" ]; then
 		case "$2" in
@@ -97,6 +102,8 @@ ansi() {
 			;;
 			"white")	tput setab 7
 			;;
+			"default")	tput setaf 9
+			;;
 		esac
 	fi
 }
@@ -104,13 +111,15 @@ ansi() {
 # main_usage()
 # Show help and exit.
 main_usage() {
-	myecho "$(ansi bold)arkiv$(ansi reset) help|config|exec $(ansi dim)[--quiet]$(ansi reset)"
+	myecho "$(ansi bold)arkiv$(ansi reset) help|config|exec $(ansi dim)[--noansi]$(ansi reset) $(ansi dim)[/path/to/config/file]$(ansi reset)"
 	myecho
-	myecho "    $(ansi bold)help$(ansi reset)      Display this help."
-	myecho "    $(ansi bold)config$(ansi reset)    Create Arkiv's configuration file."
-	myecho "    $(ansi bold)exec$(ansi reset)      Backup files and databases, archive them and purge old files."
+	myecho "                  $(ansi bold)help$(ansi reset)  Display this help."
+	myecho "                $(ansi bold)config$(ansi reset)  Create Arkiv's configuration file."
+	myecho "                  $(ansi bold)exec$(ansi reset)  Backup files and databases, archive them and purge old files."
 	myecho
-	myecho "    $(ansi dim)--quiet$(ansi reset)    Don't write information messages."
+	myecho "              $(ansi dim)--noansi$(ansi reset)  Don't use ANSI commands to ouput decorated text (colors, bold, reverse video)."
+	myecho "  $(ansi dim)/path/to/config/file$(ansi reset)  Path to the configuration file to use instead of '~/.arkiv'."
+	myecho
 	exit 0
 }
 
@@ -464,9 +473,9 @@ exec_process() {
 	fi
 }
 
-# management of the quiet mode
-if [ "$2" = "--quiet" ]; then
-	QUIET_MODE=1
+# management of the noansi mode
+if [ "$1" = "--noansi" ] || [ "$2" = "--noansi" ] || [ "$3" = "--noansi" ]; then
+	NOANSI_MODE=1
 fi
 # splashscreen
 myecho
