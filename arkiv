@@ -120,6 +120,7 @@ main_usage() {
 # @param	string	(optional) Visibility. Replace the MySQL password by an informative message if this parameter is set to "hide".
 _create_config() {
 	RESULT="CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
+CONF_Z_TYPE=$CONF_Z_TYPE
 CONF_BACKUP_PATH=$CONF_BACKUP_PATH
 CONF_SRC=$CONF_SRC
 CONF_MYSQL=$CONF_MYSQL"
@@ -171,6 +172,12 @@ main_config() {
 	CONF_LOCAL_HOSTNAME=$(trim "$ANSWER")
 	if [ "$CONF_LOCAL_HOSTNAME" = "" ]; then
 		CONF_LOCAL_HOSTNAME="$HOST"
+	fi
+	# compression type
+	read -p " $(ansi fg yellow)Compression type? (gzip|bzip2|xz) [xz]$(ansi reset) " ANSWER
+	CONF_Z_TYPE=$(trim "$ANSWER")
+	if [ "$CONF_Z_TYPE" != "gzip" ] && [ "$CONF_Z_TYPE" != "bzip2" ]; then
+		CONF_Z_TYPE="xz"
 	fi
 	# local archive path
 	read -p " $(ansi fg yellow)Path to local archives? [$(ansi reset)/var/archives$(ansi fg yellow)]$(ansi reset) " ANSWER
@@ -349,9 +356,15 @@ exec_process() {
 			myecho "$(ansi bold)Backup path '$(ansi reset)$SRC$(ansi bold)'$(ansi reset)"
 			FILENAME=$(filenamize "$SRC")
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
-			tar czf "$FILEPATH.tgz" "$SRC"
+			if [ "$CONF_Z_TYPE" = "gzip" ]; then
+				tar czf "$FILEPATH.tar.gz" "$SRC"
+			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
+				tar cjf "$FILEPATH.tar.bz2" "$SRC"
+			else
+				tar cJf "$FILEPATH.tar.xz" "$SRC"
+			fi
 			if [ $? -ne 0 ]; then
-				myecho "$(ansi fg yellow)⚠ Unable to tar+gzip path '$SRC' to '$FILEPATH.tgz'.$(ansi reset)"
+				myecho "$(ansi fg yellow)⚠ Unable to compress path '$SRC' to '$FILEPATH.tgz'.$(ansi reset)"
 			fi
 			# add to list
 			FILESLIST="$FILESLIST $FILEPATH.tgz"
@@ -361,29 +374,44 @@ exec_process() {
 	# backup mysql
 	if [ "$CONF_MYSQL" = "yes" ]; then
 		myecho "$(ansi rev)Backup databases$(ansi reset)"
+		# fetch the list of databases if needed
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
 			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
 			if [ $? -ne 0]; then
 				myecho "$(ansi fg yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
 			fi
 		fi
+		# loop on databases
 		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
+			# dump MySQL database
 			myecho "$(ansi bold)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
-				myecho "$(ansi fg yellow)⚠ Unable to dump database '$DB_NAME'.$(ansi reset)"
+				myecho "$(ansi fg yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi fg yellow)'.$(ansi reset)"
 				continue
 			fi
+			# compress the dumped file
 			myecho "$(ansi bold)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'.$(ansi reset)"
-			gzip $FILEPATH.sql
+			QUIET_PARAM=""
+			if [ "$QUIET_MODE" = "1" ]; then
+				QUIET_PARAM="--quiet"
+			fi
+			echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE $QUIET_PARAM
+			if [ "$CONF_Z_TYPE" = "gzip" ]; then
+				GENERATED_FILE="$FILEPATH.sql.gz"
+			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
+				GENERATED_FILE="$FILEPATH.sql.bz2"
+			else
+				GENERATED_FILE="$FILEPATH.sql.xz"
+			fi
 			if [ $? -ne 0 ]; then
-				myecho "$(ansi fg yellow)⚠ Unable to gzip file '$FILEPATH.sql'.$(ansi reset)"
+				myecho "$(ansi fg yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi fg yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
 				# add to list
 				FILESLIST="$FILESLIST $FILEPATH.sql"
 			else
 				# add to list
-				FILESLIST="$FILESLIST $FILEPATH.sql.gz"
+				FILESLIST="$FILESLIST $GENERATED_FILE"
 			fi
 		done
 		myecho
@@ -398,12 +426,12 @@ exec_process() {
 		myecho "$(ansi rev)Archive on Amazon Glacier$(ansi reset)"
 		aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums.glacier.json"
 		if [ $? -ne 0 ]; then
-			myecho "$(ansi fg yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi fg red)' to Amazon Glacier.$(ansi reset)"
+			myecho "$(ansi fg yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi fg yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
 		for FILE in "$FILESLIST"; do
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
-				myecho "$(ansi fg yellow)⚠ Unable to send file '$FILE' to Amazon Glacier.$(ansi reset)"
+				myecho "$(ansi fg yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi fg yellow)' to Amazon Glacier.$(ansi reset)"
 			fi
 		done
 	fi
