@@ -178,7 +178,7 @@ main_config() {
 	echo " $(ansi rev)                                         $(ansi reset)"
 	echo
 	# BASIC
-	echo "$(ansi rev yellow) BASIC         $(ansi reset)"
+	echo "$(ansi rev yellow) BASIC                   $(ansi reset)"
 	# daily/hourly
 	read -p " $(ansi yellow)Do you want to backup your data every $(ansi bold)day$(ansi reset)$(ansi yellow) or every $(ansi bold)hour$(ansi reset)$(ansi yellow)? [Day/hour] $(ansi reset) " ANSWER
 	ANSWER=$(trim "$ANSWER")
@@ -212,7 +212,7 @@ main_config() {
 	fi
 	# BACKUP
 	echo
-	echo "$(ansi rev blue) BACKUP        $(ansi reset)"
+	echo "$(ansi rev blue) BACKUP                  $(ansi reset)"
 	# path to backup
 	read -p " $(ansi yellow)Paths (directories and/or files) to backup? (separated with spaces) [/etc /home]$(ansi reset) " ANSWER
 	CONF_SRC=$(trim "$ANSWER")
@@ -269,25 +269,30 @@ main_config() {
 	fi
 	# ARCHIVE
 	echo
-	echo "$(ansi rev magenta) ARCHIVE       $(ansi reset)"
+	echo "$(ansi rev magenta) ARCHIVE                 $(ansi reset)"
 	# local archive path
 	read -p " $(ansi yellow)Path to local archives? [/var/archives]$(ansi reset) " ANSWER
 	CONF_BACKUP_PATH=$(trim "$ANSWER")
 	if [ "$CONF_BACKUP_PATH" = "" ]; then
 		CONF_BACKUP_PATH="/var/archives"
 	fi
-	if [ ! -d $CONF_BACKUP_PATH ]; then
+	CONF_BACKUP_PATH="$(eval realpath "$CONF_BACKUP_PATH")"
+	if [ ! -d "$CONF_BACKUP_PATH" ]; then
 		read -p " $(ansi yellow)Directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi yellow)' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			echo " $(ansi red)⛔ ABORT$(ansi reset)"
 			exit 1
 		fi
-		if ! mkdir -p $CONF_BACKUP_PATH; then
+		if ! mkdir -p "$CONF_BACKUP_PATH"; then
 			echo " $(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi red)'. ABORT$(ansi reset)"
 			exit 1
 		fi
-		chmod 600 $CONF_BACKUP_PATH
-	elif [ ! -w $CONF_BACKUP_PATH ]; then
+		chmod 600 "$CONF_BACKUP_PATH"
+		if [ $? -ne 0 ]; then
+			echo " $(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi red)'. ABORT$(ansi reset)"
+			exit 1
+		fi
+	elif [ ! -w "$CONF_BACKUP_PATH" ]; then
 		echo " $(ansi red)⛔ Directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi red)' exists but is not writable. ABORT$(ansi reset)"
 		exit 1
 	fi
@@ -323,7 +328,7 @@ main_config() {
 	fi
 	# PURGE
 	echo
-	echo "$(ansi rev red) PURGE         $(ansi reset)"
+	echo "$(ansi rev red) PURGE                   $(ansi reset)"
 	# local purge
 	if [ "$CONF_FREQUENCY" = "daily" ]; then
 		# daily backups
@@ -336,7 +341,7 @@ main_config() {
 		echo " $(ansi dim)   - A number followed by a duration. Examples: \"3 days\", \"2 weeks\", \"2 months\"$(ansi reset)"
 		echo " $(ansi dim)   - Same as previous, followed by a colon and some hours to purge (separated by comas). Example: \"2 days:02,04,06,08,10;4 days,01,03,05\"$(ansi reset)"
 		echo " $(ansi dim)Advice: Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
-		echo " $(ansi dim)        Like \"2 days:01,03,05,07,09,11,13,15,17,19,21,23;1 week:02,04,06,10,12,14,18,20,22;2 weeks:08,16;1 month"
+		echo " $(ansi dim)        Like \"2 days:01,03,05,07,09,11,13,15,17,19,21,23;1 week:02,04,06,10,12,14,18,20,22;2 weeks:08,16;1 month\"$(ansi reset)"
 		read ANSWER
 	fi
 	CONF_LOCAL_PURGE_DELAY=$(trim "$ANSWER")
@@ -360,7 +365,7 @@ main_config() {
 			echo " $(ansi dim)   - A number followed by a duration. Examples: \"3 days\", \"2 weeks\", \"2 months\"$(ansi reset)"
 			echo " $(ansi dim)   - Same as previous, followed by a colon and some hours to purge (separated by comas). Example: \"2 days:02,04,06,08,10;4 days,01,03,05\"$(ansi reset)"
 			echo " $(ansi dim)Advice: Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
-			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,15,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,30;2 months"
+			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,15,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,30;2 months\"$(ansi reset)"
 			read ANSWER
 		fi
 		CONF_S3_PURGE_DELAY=$(trim "$ANSWER")
@@ -374,7 +379,7 @@ main_config() {
 	fi
 	# GENERATED CONFIG
 	echo
-	echo "$(ansi rev green) CONFIG CHECK  $(ansi reset)"
+	echo "$(ansi rev green) CONFIG CHECK            $(ansi reset)"
 	# create result
 	RESULT="$(_create_config hide)"
 	# display result
@@ -402,7 +407,7 @@ main_config() {
 	echo " $(ansi green)✓ The configuration file '$(ansi reset)$CONFIG_FILE_PATH$(ansi green)' was successfully created.$(ansi reset)"
 	# CRONTAB
 	echo
-	echo "$(ansi rev cyan) CRONTAB       $(ansi reset)"
+	echo "$(ansi rev cyan) CRONTAB                 $(ansi reset)"
 	IN_CRONTAB=`crontab -l 2>/dev/null | grep arkiv | wc -l`
 	if [ "$IN_CRONTAB" != "0" ]; then
 		read -p " $(ansi yellow)Arkiv is already defined in Crontab. Do you want to remove it and re-define it? [Y/n]$(ansi reset) " ANSWER
@@ -464,20 +469,20 @@ main_config() {
 	echo "$(ansi rev) END OF CONFIGURATION    $(ansi reset)"
 }
 
-# exec_process()
+# main_process()
 # Backup files, archive and purge.
-exec_process() {
+main_process() {
 	# get current hour (used during purge process)
 	CURRENT_HOUR=`date +"%M"`
 	# log
 	echo "$(ansi rev)------------------------------------------------------------$(ansi reset)"
 	# configuration
 	log "$(ansi dim)Read config file '$(ansi reset)$CONFIG_FILE_PATH$(ansi dim)'.$(ansi reset)"
-	if [ ! -r $CONFIG_FILE_PATH ]; then
+	if [ ! -r "$(eval realpath "$CONFIG_FILE_PATH")" ]; then
 		log "$(ansi red)⛔ Unable to read file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	else
-		. $CONFIG_FILE_PATH
+		. "$(eval realpath "$CONFIG_FILE_PATH")"
 	fi
 	# create destination directory
 	if [ "$CONF_FREQUENCY" = "daily" ]; then
@@ -491,10 +496,15 @@ exec_process() {
 		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
+	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_DATE"
+	if [ $? -ne 0 ]; then
+		log "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
+		exit 1
+	fi
 	# list of created files
 	FILESLIST=""
 	# backup files
-	if [ "$CONF_SRC" != ""]; then
+	if [ "$CONF_SRC" != "" ]; then
 		log "$(ansi bold)Backup files$(ansi reset)"
 		# loop on paths to backup
 		for SRC in $CONF_SRC; do
@@ -519,7 +529,7 @@ exec_process() {
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to set permissions to backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
 		echo
@@ -530,14 +540,14 @@ exec_process() {
 		# fetch the list of databases if needed
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
 			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
-			if [ $? -ne 0]; then
+			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
 			fi
 		fi
 		# loop on databases
 		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
 			# dump MySQL database
-			log "  $(ansi dim)Backup database '$(ansi reset)$DB_NAME($ansi bold)'$(ansi reset)"
+			log "  $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
@@ -563,22 +573,23 @@ exec_process() {
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to set permissions to backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
 		echo
 	fi
 	# compute checksums
 	log "Compute checksums"
+	FILESLIST="$(trim "$FILESLIST")"
 	sha256sum "$FILESLIST" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
 	if [ $? -ne 0 ]; then
 		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
+	# change cheksum file rights
 	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
 	if [ $? -ne 0 ]; then
-		log "$(ansi yellow)⚠ Unable to set permissions to checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
+		log "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
-	# change cheksum file rights
 	# archive on Amazon Glacier
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon Glacier$(ansi reset)"
