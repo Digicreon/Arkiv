@@ -124,45 +124,45 @@ main_usage() {
 # Uses the global variables defined elsewhere ($CONF_LOCAL_HOSTNAME, $CONF_BACKUP_PATH, etc.).
 # @param	string	(optional) Visibility. Replace the MySQL password by an informative message if this parameter is set to "hide".
 _create_config() {
-	RESULT="CONF_FREQUENCY=$CONF_FREQUENCY
-CONF_LOCAL_HOSTNAME=$CONF_LOCAL_HOSTNAME
-CONF_Z_TYPE=$CONF_Z_TYPE
-CONF_BACKUP_PATH=$CONF_BACKUP_PATH
-CONF_SRC=$CONF_SRC
-CONF_MYSQL=$CONF_MYSQL"
+	RESULT="CONF_FREQUENCY=\"$CONF_FREQUENCY\"
+CONF_LOCAL_HOSTNAME=\"$CONF_LOCAL_HOSTNAME\"
+CONF_Z_TYPE=\"$CONF_Z_TYPE\"
+CONF_BACKUP_PATH=\"$CONF_BACKUP_PATH\"
+CONF_SRC=\"$CONF_SRC\"
+CONF_MYSQL=\"$CONF_MYSQL\""
 	if [ "$CONF_MYSQL" = "yes" ]; then
 		RESULT="$RESULT
-CONF_MYSQL_HOST=$CONF_MYSQL_HOST
-CONF_MYSQL_USER=$CONF_MYSQL_USER"
+CONF_MYSQL_HOST=\"$CONF_MYSQL_HOST\"
+CONF_MYSQL_USER=\"$CONF_MYSQL_USER\""
 		if [ "$1" = "hide" ]; then
 			RESULT="$RESULT
 CONF_MYSQL_PWD=___HIDDEN_PASSWORD___"
 		else
 			RESULT="$RESULT
-CONF_MYSQL_PWD=$CONF_MYSQL_PWD"
+CONF_MYSQL_PWD=\"$CONF_MYSQL_PWD\""
 		fi
 		RESULT="$RESULT
-CONF_MYSQL_ALL_DATABASES=$CONF_MYSQL_ALL_DATABASES"
+CONF_MYSQL_ALL_DATABASES=\"$CONF_MYSQL_ALL_DATABASES\""
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
 			RESULT="$RESULT
-CONF_MYSQL_DATABASES=$CONF_MYSQL_DATABASES"
+CONF_MYSQL_DATABASES=\"$CONF_MYSQL_DATABASES\""
 		fi
 	fi
 	RESULT="$RESULT
-CONF_AWS_S3=$CONF_AWS_S3"
+CONF_AWS_S3=\"$CONF_AWS_S3\""
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		RESULT="$RESULT
-CONF_S3_BUCKET=$CONF_S3_BUCKET"
+CONF_S3_BUCKET=\"$CONF_S3_BUCKET\""
 	fi
 	RESULT="$RESULT
-CONF_AWS_GLACIER=$CONF_AWS_GLACIER"
+CONF_AWS_GLACIER=\"$CONF_AWS_GLACIER\""
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
 		RESULT="$RESULT
-CONF_GLACIER_VAULT=$CONF_GLACIER_VAULT"
+CONF_GLACIER_VAULT=\"$CONF_GLACIER_VAULT\""
 	fi
 	RESULT="$RESULT
-CONF_LOCAL_PURGE_DELAY=$CONF_LOCAL_PURGE_DELAY
-CONF_S3_PURGE_DELAY=$CONF_S3_PURGE_DELAY"
+CONF_LOCAL_PURGE_DELAY=\"$CONF_LOCAL_PURGE_DELAY\"
+CONF_S3_PURGE_DELAY=\"$CONF_S3_PURGE_DELAY\""
 	echo "$RESULT"
 }
 
@@ -389,14 +389,18 @@ main_config() {
 		echo " $(ansi red)⛔ ABORT$(ansi reset)"
 		exit 1
 	fi
-	if ! rm "$CONFIG_FILE_PATH" ||
-	   ! touch "$CONFIG_FILE_PATH" ||
-	   ! chmod 600 "$CONFIG_FILE_PATH"; then
-		echo " $(ansi red)⛔ Unable to manage the file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
+	RESULT="$(_create_config)"
+	CONFIG_FILE_PATH="/home/amaury/.toto"
+	echo "$RESULT" > "$(eval realpath "$CONFIG_FILE_PATH")"
+	if [ $? -ne 0 ]; then
+		echo " $(ansi red)⛔ Unable to create the file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
-	RESULT="$(_create_config)"
-	echo "$RESULT" >> "$CONFIG_FILE_PATH"
+	chmod 600 "$(eval realpath "$CONFIG_FILE_PATH")"
+	if [ $? -ne 0 ]; then
+		echo " $(ansi yellow)⚠ Unable to set access rights of the file '$(ansi reset)$CONFIG_FILE_PATH$(ansi yellow)'.$(ansi reset)"
+	fi
+	echo " $(ansi green)✓ The configuration file '$(ansi reset)$CONFIG_FILE_PATH$(ansi green)' was successfully created.$(ansi reset)"
 	# CRONTAB
 	echo
 	echo "$(ansi rev cyan) CRONTAB       $(ansi reset)"
