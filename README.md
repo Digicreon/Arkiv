@@ -3,21 +3,23 @@ Arkiv
 
 Easy-to-use backup and archive tool.
 
-Arkiv is designed to **backup** local files and [MySQL](https://www.mysql.com/) databases, and **archive** them on [Amazon S3](https://aws.amazon.com/s3/) and [Amazon Glacier](https://aws.amazon.com/glacier/).
+Arkiv is designed to **backup** local files and [MySQL](https://www.mysql.com/) databases, and **archive** them on [Amazon S3](https://aws.amazon.com/s3/) and [Amazon Glacier](https://aws.amazon.com/glacier/).  
 Backup files are removed (locally and from Amazon S3) after defined delays.
-Could backup your data on a daily or an hourly basis.
 
+Arkiv could backup your data on a **daily** or an **hourly** basis.  
 It is written in pure shell, so it can be used on any Unix/Linux machine.
 
 
 How it works
 ------------
 
-### Abstract
+### General idea
 - Generate backup data from local files and databases.
-- Store data on the local drive for a few days, in order to be able to restore fresh data very quickly.
-- Store data on Amazon S3 for a few weeks, if you need to restore them easily.
+- Store data on the local drive for a few days/weeks, in order to be able to restore fresh data very quickly.
+- Store data on Amazon S3 for a few weeks/months, if you need to restore them easily.
 - Store data on Amazon Glacier for ever. It's an incredibly cheap storage that should be used instead of Amazon S3 for long-term conservancy.
+
+If your data are backed up every hour (not every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be donfigured for Amazon S3 archives.
 
 ### Step-by-step
 **Starting**
@@ -27,10 +29,10 @@ How it works
 **Backup**
 1. Each configured path is `tar`'ed and compressed, and the result is stored in the dedicated directory.
 2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in the same directory.
-3. Checksums are computed for all the generated files. These checksums are useful to verify that files are not corrupted after being transfered over a network.
+3. Checksums are computed for all the generated files. These checksums are useful to verify that the files are not corrupted after being transfered over a network.
 
 **Archiving**
-1. *If Amazon Glacier is configured*, all the generated backup files (not the checksums file) are sent to Amazon Glacier. For each one of them, a JSON file is created with the response content; these files are important, because they contain the *archiveId* needed to restore the file.
+1. *If Amazon Glacier is configured*, all the generated backup files (not the checksums file) are sent to Amazon Glacier. For each one of them, a JSON file is created with the response's content; these files are important, because they contain the *archiveId* needed to restore the file.
 2. *If Amazon S3 is configured*, the whole directory (backup files + checksums file + Amazon Glacier JSON files) is copied to Amazon S3.
 
 **Purge**
@@ -43,7 +45,7 @@ Prerequisites
 
 ### Basic
 
-Several tool are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
+Several tools are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
 - A not-so-old [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell)) Shell interpreter located on `/bin/bash`.
 - [`tar`](https://en.wikipedia.org/wiki/Tar_(computing))
 - [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz)
@@ -68,7 +70,7 @@ To install it on Ubuntu:
 
 If you want to archive the generated backup files on Amazon S3/Glacier, you have to do these things:
 - Create a dedicated bucket on [Amazon S3](https://aws.amazon.com/s3/).
-- If you want to archive on Amazon Glacier, create a dedicated vault on [Amazon Glacier](https://aws.amazon.com/glacier/) (in the same datacenter).
+- If you want to archive on [Amazon Glacier](https://aws.amazon.com/glacier/), create a dedicated vault in the same datacenter.
 - Create an [IAM](https://aws.amazon.com/iam/) user with read-write access to this bucket and this vault (if needed).
 - Install the [AWS-CLI](https://aws.amazon.com/cli/) program and [configure it](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html).
 
@@ -83,8 +85,8 @@ Configuration of the program (you will be asked for the AWS user's access key an
 ```
 
 
-Install
--------
+Arkiv Installation
+------------------
 
 Clone the GitHub repository:
 ```shell
@@ -98,6 +100,7 @@ Configuration:
 ```
 
 Some questions will be asked about:
+- If you want to backup data every day or every hour.
 - The local machine's name (will be used as a subdirectory of the S3 bucket).
 - Where to store the compressed files resulting of the backup.
 - Which files must be backed up.
@@ -173,6 +176,7 @@ But Arkiv is different in several ways:
 - Written in pure shell, it doesn't need a Perl interpreter.
 - The configuration process is simpler (you answer to questions).
 - Transfer to Amazon Glacier for long-term archiving.
+- Can manage hourly backups.
 
 On the other hand, [Backup-Manager](https://github.com/sukria/Backup-Manager) is able to transfer to remote destinations by SCP or FTP.
 
