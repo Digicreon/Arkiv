@@ -5,6 +5,7 @@ Easy-to-use backup and archive tool.
 
 Arkiv is designed to **backup** local files and [MySQL](https://www.mysql.com/) databases, and **archive** them on [Amazon S3](https://aws.amazon.com/s3/) and [Amazon Glacier](https://aws.amazon.com/glacier/).
 Backup files are removed (locally and from Amazon S3) after defined delays.
+Could backup your data on a daily or an hourly basis.
 
 It is written in pure shell, so it can be used on any Unix/Linux machine.
 
@@ -12,25 +13,29 @@ It is written in pure shell, so it can be used on any Unix/Linux machine.
 How it works
 ------------
 
-The whole idea is:
+### Abstract
 - Generate backup data from local files and databases.
 - Store data on the local drive for a few days, in order to be able to restore fresh data very quickly.
 - Store data on Amazon S3 for a few weeks, if you need to restore them easily.
 - Store data on Amazon Glacier for ever. It's an incredibly cheap storage that should be used instead of Amazon S3 for long-term conservancy.
 
-1. **Starting**
-   1. Arkiv is launched every day by Crontab.
-   2. It creates a directory dedicated to the backups of the day.
-2. **Backup**
-   1. Each configured path is `tar`'ed and compressed, and the result is stored in the dedicated directory.
-   2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in the same directory.
-   3. Checksums are computed for all the generated files. These checksums are useful to verify that files are not corrupted after being transfered over a network.
-3. **Archiving**
-   1. *If Amazon Glacier is configured*, all the generated backup files (not the checksums file) are sent to Amazon Glacier. For each one of them, a JSON file is created with the answer; these files are important, because they contain the archiveId needed to restore the file.
-   2. *If Amazon S3 is configured*, the whole directory (backup files + checksums file + Amazon Glacier JSON files) is copied to Amazon S3.
-4. **Purge**
-   1. After a configured delay, backup files are removed from the local disk drive.
-   2. *If Amazon S3 is configured*, all backup files are removed from Amazon S3 after a configured delay. The checksums file and the Amazon Glacier JSON files are *not* removed, because they are needed to restore data from Amazon Glacier and check their integrity.
+### Step-by-step
+**Starting**
+1. Arkiv is launched every day (or every hour) by Crontab.
+2. It creates a directory dedicated to the backups of the day (or the backups of the hour).
+
+**Backup**
+1. Each configured path is `tar`'ed and compressed, and the result is stored in the dedicated directory.
+2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in the same directory.
+3. Checksums are computed for all the generated files. These checksums are useful to verify that files are not corrupted after being transfered over a network.
+
+**Archiving**
+1. *If Amazon Glacier is configured*, all the generated backup files (not the checksums file) are sent to Amazon Glacier. For each one of them, a JSON file is created with the response content; these files are important, because they contain the *archiveId* needed to restore the file.
+2. *If Amazon S3 is configured*, the whole directory (backup files + checksums file + Amazon Glacier JSON files) is copied to Amazon S3.
+
+**Purge**
+1. After a configured delay, backup files are removed from the local disk drive.
+2. *If Amazon S3 is configured*, all backup files are removed from Amazon S3 after a configured delay. The checksums file and the Amazon Glacier JSON files are *not* removed, because they are needed to restore data from Amazon Glacier and check their integrity.
 
 
 Prerequisites
@@ -39,7 +44,7 @@ Prerequisites
 ### Basic
 
 Several tool are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
-- A not-so-old Shell interpreter (like [`dash`](https://en.wikipedia.org/wiki/Almquist_shell) or [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell))) available on `/bin/sh`.
+- A not-so-old [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell)) Shell interpreter located on `/bin/bash`.
 - [`tar`](https://en.wikipedia.org/wiki/Tar_(computing))
 - [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz)
 - [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum)
@@ -100,7 +105,7 @@ Some questions will be asked about:
 - Where to archive data on Amazon S3 and Amazon Glacier (if you want to).
 - When to purge files (locally and on Amazon S3).
 
-Finally, the program could add the backup/archive/purge process to the user's crontab.
+Finally, the program could add the Arkiv execution to the user's crontab.
 
 
 Frequently Asked Questions
@@ -131,6 +136,35 @@ You just have to edit the configuration file of the user's [Cron table](https://
 
 ### How to execute pre- and/or post-backup scripts?
 See the previous answer. You just have to add these scripts before and/or after the Arkiv program in the Cron table.
+
+### How to execute Arkiv with different configurations?
+You can add the path to the configuration file as a parameter of the program on the command line.
+
+To generate the configuration file:
+```shell
+# ./arkiv config /path/to/config/file
+```
+
+To launch Arkiv:
+```shell
+# ./arkiv exec /path/to/config/file
+```
+
+You can modify the Crontab to add the path too.
+
+### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
+When a file is sent to Amazon Glacier, you get an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
+If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. It's more secure to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
+
+### I open the Arkiv log file with less, and it's full of strange characters
+Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
+To enable it, you have to use the option `-r` or `-R`.
+
+### How to get pure text (without ANSI commands) in Arkiv's log file?
+Add the option `--noansi` on the command line or in the Crontab command.
+
+### Why is Arkiv compatible only with Bash interpreter?
+Because the `read` buitin command has a `-s` parameter for silent input (used for MySQL password input without showing it), unavailable on `dash` or `zsh` (for example).
 
 ### Arkiv looks like Backup-Manager
 Yes indeed. Both of them wants to help people to backup files and databases, and archive data in a secure place.
