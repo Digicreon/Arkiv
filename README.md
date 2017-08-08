@@ -131,7 +131,7 @@ Here are some helpful links:
 
 The default usage is `xz`, because a reduced file size means faster file transfers over a network.
 
-### How to set up Arkiv to be executed at another time than midnight?
+### On daily backups, how to set up Arkiv to be executed at another time than midnight?
 You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
 ```shell
 # crontab -e
@@ -139,6 +139,9 @@ You just have to edit the configuration file of the user's [Cron table](https://
 
 ### How to execute pre- and/or post-backup scripts?
 See the previous answer. You just have to add these scripts before and/or after the Arkiv program in the Cron table.
+
+### Is it possible to backup more often than every hours?
+No, it's not possible.
 
 ### How to execute Arkiv with different configurations?
 You can add the path to the configuration file as a parameter of the program on the command line.
@@ -157,7 +160,7 @@ You can modify the Crontab to add the path too.
 
 ### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
 When a file is sent to Amazon Glacier, you get an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
-If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexiblee to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
+If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexible to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
 
 ### I open the Arkiv log file with less, and it's full of strange characters
 Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
@@ -173,10 +176,10 @@ Because the `read` buitin command has a `-s` parameter for silent input (used fo
 Yes indeed. Both of them wants to help people to backup files and databases, and archive data in a secure place.
 
 But Arkiv is different in several ways:
-- Written in pure shell, it doesn't need a Perl interpreter.
+- It can manage hourly backups.
+- It can transfer data on Amazon Glacier for long-term archiving.
 - The configuration process is simpler (you answer to questions).
-- Transfer to Amazon Glacier for long-term archiving.
-- Can manage hourly backups.
+- Written in pure shell, it doesn't need a Perl interpreter.
 
 On the other hand, [Backup-Manager](https://github.com/sukria/Backup-Manager) is able to transfer to remote destinations by SCP or FTP.
 
