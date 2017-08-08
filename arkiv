@@ -390,7 +390,6 @@ main_config() {
 		exit 1
 	fi
 	RESULT="$(_create_config)"
-	CONFIG_FILE_PATH="/home/amaury/.toto"
 	echo "$RESULT" > "$(eval realpath "$CONFIG_FILE_PATH")"
 	if [ $? -ne 0 ]; then
 		echo " $(ansi red)⛔ Unable to create the file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
@@ -517,6 +516,11 @@ exec_process() {
 			fi
 			# add to list
 			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+			# change file rights
+			chmod 600 "$FILEPATH.$FILE_EXT"
+			if [ $? -ne 0 ]; then
+				log "$(ansi yellow)⚠ Unable to set permissions to backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+			fi
 		done
 		echo
 	fi
@@ -552,11 +556,14 @@ exec_process() {
 			echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
-				# add to list
-				FILESLIST="$FILESLIST $FILEPATH.sql"
-			else
-				# add to list
-				FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+				FILE_EXT="sql"
+			fi
+			# add to list
+			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+			# change file rights
+			chmod 600 "$FILEPATH.$FILE_EXT"
+			if [ $? -ne 0 ]; then
+				log "$(ansi yellow)⚠ Unable to set permissions to backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
 		echo
@@ -567,6 +574,11 @@ exec_process() {
 	if [ $? -ne 0 ]; then
 		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
+	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
+	if [ $? -ne 0 ]; then
+		log "$(ansi yellow)⚠ Unable to set permissions to checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
+	fi
+	# change cheksum file rights
 	# archive on Amazon Glacier
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon Glacier$(ansi reset)"
