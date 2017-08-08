@@ -157,7 +157,7 @@ You can modify the Crontab to add the path too.
 
 ### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
 When a file is sent to Amazon Glacier, you get an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
-If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. It's more secure to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
+If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexiblee to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
 
 ### I open the Arkiv log file with less, and it's full of strange characters
 Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
