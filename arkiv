@@ -43,7 +43,7 @@ filenamize() {
 #			- under: Write underlined text.
 #			- black, red, green, yellow, blue, magenta, cyan, white: Change the text color.
 ansi() {
-	if [ "$NOANSI_MODE" = "1" ]; then
+	if [ "$TERM" = "" ] || [ "$NOANSI_MODE" = "1" ]; then
 		return
 	fi
 	case "$1" in
@@ -525,7 +525,7 @@ main_process() {
 				log "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 			# add to list
-			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+			FILESLIST="$FILESLIST \"$FILEPATH.$FILE_EXT\""
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
@@ -555,7 +555,7 @@ main_process() {
 				continue
 			fi
 			# compress the dumped file
-			log "  $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME($ansi bold)'.$(ansi reset)"
+			log "  $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME$(ansi bold)'.$(ansi reset)"
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
 				FILE_EXT="sql.gz"
 			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
@@ -569,7 +569,7 @@ main_process() {
 				FILE_EXT="sql"
 			fi
 			# add to list
-			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+			FILESLIST="$FILESLIST \"$FILEPATH.$FILE_EXT\""
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
@@ -580,8 +580,7 @@ main_process() {
 	fi
 	# compute checksums
 	log "Compute checksums"
-	FILESLIST="$(trim "$FILESLIST")"
-	sha256sum "$FILESLIST" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
+	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
 	if [ $? -ne 0 ]; then
 		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
@@ -597,8 +596,8 @@ main_process() {
 		if [ $? -ne 0 ]; then
 			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
-		for FILE in "$FILESLIST"; do
-			log "  $(ansi dim)$FILE$(ansi reset)"
+		for FILE in $FILESLIST; do
+			log "  $(ansi dim)Archive file '$(ansi reset)$FILE$$(ansi dim)'.(ansi reset)"
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
