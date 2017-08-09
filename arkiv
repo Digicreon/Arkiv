@@ -520,7 +520,7 @@ main_process() {
 			FILENAME=$(filenamize "$SRC")
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
 			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
-			SRC="$(echo "$src" | sed 's/^\///')"
+			SRC="$(echo "$SRC" | sed 's/^\///')"
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
 				FILE_EXT="tar.gz"
 				tar czf "$FILEPATH.$FILE_EXT" -C / "$SRC"
