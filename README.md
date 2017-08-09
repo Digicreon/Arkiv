@@ -9,6 +9,8 @@ Backup files are removed (locally and from Amazon S3) after defined delays.
 Arkiv could backup your data on a **daily** or an **hourly** basis (you can choose which day and/or which hours it will be launched).  
 It is written in pure shell, so it can be used on any Unix/Linux machine.
 
+Arkiv was created by Amaury Bouchard <amaury@amaury.net>.
+
 
 How it works
 ------------
@@ -19,7 +21,7 @@ How it works
 - Store data on Amazon S3 for a few weeks/months, if you need to restore them easily.
 - Store data on Amazon Glacier for ever. It's an incredibly cheap storage that should be used instead of Amazon S3 for long-term conservancy.
 
-If your data are backed up every hour (not every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be configured for Amazon S3 archives.
+If your data are backed up every hour (not just every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be configured for Amazon S3 archives.
 
 ### Step-by-step
 **Starting**
@@ -183,6 +185,9 @@ Add the option `--noansi` on the command line or in the Crontab command.
 
 ### Why is Arkiv compatible only with Bash interpreter?
 Because the `read` buitin command has a `-s` parameter for silent input (used for MySQL password input without showing it), unavailable on `dash` or `zsh` (for example).
+
+### How to report bugs?
+[Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)
 
 ### Arkiv looks like Backup-Manager
 Yes indeed. Both of them wants to help people to backup files and databases, and archive data in a secure place.
