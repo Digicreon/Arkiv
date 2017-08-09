@@ -445,7 +445,7 @@ main_config() {
 			CONF_LOG_PATH="/var/log/arkiv"
 		fi
 		if [ ! -d $CONF_LOG_PATH ]; then
-			read -p " $(ansi yellow)Directory '$CONF_LOG_PATH' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
+			read -p " $(ansi yellow)Directory '$(ansi reset)$CONF_LOG_PATH$(ansi yellow)' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
 			if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 				echo " $(ansi red)⛔ ABORT$(ansi reset)"
 				exit 1

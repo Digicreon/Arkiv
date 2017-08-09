@@ -162,6 +162,18 @@ You can modify the Crontab to add the path too.
 When a file is sent to Amazon Glacier, you get an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
 If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexible to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
 
+### I want to have colors in the Arkiv log file when it's launched from Crontab, as well as when it's launch from the command line
+The problem comes from the Crontab environment, which is very minimal.
+
+You have to set the `TERM` environment variable from the Crontab. It is also a good idea to define the `MAILTO` and `PATH` variables.
+
+Edit the Crontab and add these three lines at its beginning:
+```shell
+TERM=xterm
+MAILTO=your.email@domain.com
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
 ### I open the Arkiv log file with less, and it's full of strange characters
 Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
 To enable it, you have to use the option `-r` or `-R`.
