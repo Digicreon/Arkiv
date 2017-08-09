@@ -642,10 +642,8 @@ main_process() {
 			if [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE" ]; then
 				continue;
 			fi
-			# get the list of hours to delete
-			HOURS=$(echo "$DELAY" | cut -d":" -f 2)
-			HOURS=$(trim "$HOURS")
-			if [ "$HOURS" = "" ]; then
+			# check if there is some specified hours
+			if [[ $DELAY != *:* ]]; then
 				# no specified hour, delete the whole day
 				log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 				rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
@@ -653,6 +651,12 @@ main_process() {
 					log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
 				fi
 			else
+				# get the list of hours to delete
+				HOURS=$(echo "$DELAY" | cut -d":" -f 2)
+				HOURS=$(trim "$HOURS")
+				if [ "$HOURS" = "" ]; then
+					continue
+				fi
 				# loop on the hours
 				HOURS=$(echo "$HOURS" | tr "," "\n")
 				for HOUR in $HOURS; do
@@ -693,10 +697,8 @@ main_process() {
 			AGO=$(echo "$DELAY" | cut -d":" -f 1 | tr "_" " ")
 			# compute the date of the archive(s) to purge
 			PURGE_DATE=`date --date="$AGO ago" +%Y-%m-%d`
-			# get the list of hours to delete
-			HOURS=$(echo "$DELAY" | cut -d":" -f 2)
-			HOURS=$(trim "$HOURS")
-			if [ "$HOURS" = "" ]; then
+			# check if there is some specified hours
+			if [[ $DELAY != *:* ]]; then
 				# no specified hour, delete the whole day
 				log "├ $(ansi dim)Delete '$(ansi reset)s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi dim)'."
 				aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
@@ -704,6 +706,12 @@ main_process() {
 					log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
 				fi
 			else
+				# get the list of hours to delete
+				HOURS=$(echo "$DELAY" | cut -d":" -f 2)
+				HOURS=$(trim "$HOURS")
+				if [ "$HOURS" = "" ]; then
+					continue
+				fi
 				# loop on the hours
 				HOURS=$(echo "$HOURS" | tr "," "\n")
 				for HOUR in $HOURS; do
