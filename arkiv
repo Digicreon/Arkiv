@@ -476,9 +476,9 @@ main_config() {
 	echo "$(ansi rev) END OF CONFIGURATION    $(ansi reset)"
 }
 
-# main_process()
+# main_exec()
 # Backup files, archive and purge.
-main_process() {
+main_exec() {
 	# get current hour (used during purge process)
 	CURRENT_HOUR=`date +"%M"`
 	# log
@@ -610,7 +610,7 @@ main_process() {
 			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
 		for FILE in $FILESLIST; do
-			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.(ansi reset)"
+			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.$(ansi reset)"
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
@@ -667,7 +667,7 @@ main_process() {
 						continue;
 					fi
 					# delete the directory
-					log "├ $(ansi dim)DELETE '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi dim)'."
+					log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00"
 					if [ $? -ne 0 ]; then
 						log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
@@ -722,7 +722,7 @@ main_process() {
 						continue;
 					fi
 					# delete the directory
-					log "├ $(ansi dim)DELETE '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi dim)'."
+					log "├ $(ansi dim)Delete '$(ansi reset)s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
 					if [ $? -ne 0 ]; then
 						log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
@@ -732,6 +732,8 @@ main_process() {
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
+	log "$(ansi green)✓ End of processing$(ansi reset)"
+	echo
 }
 
 # management of the noansi mode
@@ -747,7 +749,7 @@ fi
 case "$1" in
 	"config")	main_config
 	;;
-	"exec")		main_process
+	"exec")		main_exec
 	;;
 	*)		main_usage
 	;;
