@@ -6,7 +6,7 @@ Easy-to-use backup and archive tool.
 Arkiv is designed to **backup** local files and [MySQL](https://www.mysql.com/) databases, and **archive** them on [Amazon S3](https://aws.amazon.com/s3/) and [Amazon Glacier](https://aws.amazon.com/glacier/).  
 Backup files are removed (locally and from Amazon S3) after defined delays.
 
-Arkiv could backup your data on a **daily** or an **hourly** basis.  
+Arkiv could backup your data on a **daily** or an **hourly** basis (you can choose which day and/or which hours it will be launched).  
 It is written in pure shell, so it can be used on any Unix/Linux machine.
 
 
