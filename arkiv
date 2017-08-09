@@ -498,7 +498,7 @@ main_process() {
 	else
 		CURRENT_DATE=`date +%Y-%m-%d/%H:00`
 	fi
-	log "└ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi dim)'.$(ansi reset)"
+	log "├ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi dim)'.$(ansi reset)"
 	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_DATE"
 	if [ $? -ne 0 ]; then
 		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
@@ -509,6 +509,7 @@ main_process() {
 		log "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
+	log "└ $(ansi green)Done$(ansi reset)"
 	# list of created files
 	FILESLIST=""
 	# backup files
@@ -637,11 +638,16 @@ main_process() {
 			AGO=$(echo "$DELAY" | cut -d":" -f 1 | tr "_" " ")
 			# compute the date of the archive(s) to purge
 			PURGE_DATE=`date --date="$AGO ago" +%Y-%m-%d`
+			# check if the directory exists
+			if [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE" ]; then
+				continue;
+			fi
 			# get the list of hours to delete
-			HOURS=$(trim $(echo "$DELAY" | cut -d":" -f 2))
+			HOURS=$(echo "$DELAY" | cut -d":" -f 2)
+			HOURS=$(trim "$HOURS")
 			if [ "$HOURS" = "" ]; then
 				# no specified hour, delete the whole day
-				log "$(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
+				log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 				rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
 				if [ $? -ne 0 ]; then
 					log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
@@ -657,7 +663,7 @@ main_process() {
 						continue;
 					fi
 					# delete the directory
-					log "$(ansi dim)DELETE '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi dim)'."
+					log "├ $(ansi dim)DELETE '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00"
 					if [ $? -ne 0 ]; then
 						log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
@@ -666,7 +672,7 @@ main_process() {
 				# delete the whole day's directory if it's empty
 				NBR=`ls -l "$CONF_BACKUP_PATH/$PURGE_DATE" | tail -n +2 | wc -l`
 				if [ $NBR -eq 0 ]; then
-					log "$(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
+					log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
 					if [ $? -ne 0 ]; then
 						log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
@@ -674,6 +680,7 @@ main_process() {
 				fi
 			fi
 		done
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# purge files on Amazon S3
 	if [ "$CONF_S3_PURGE_DELAY" != "" ]; then
@@ -687,10 +694,11 @@ main_process() {
 			# compute the date of the archive(s) to purge
 			PURGE_DATE=`date --date="$AGO ago" +%Y-%m-%d`
 			# get the list of hours to delete
-			HOURS=$(trim $(echo "$DELAY" | cut -d":" -f 2))
+			HOURS=$(echo "$DELAY" | cut -d":" -f 2)
+			HOURS=$(trim "$HOURS")
 			if [ "$HOURS" = "" ]; then
 				# no specified hour, delete the whole day
-				log "$(ansi dim)Delete '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi dim)'."
+				log "├ $(ansi dim)Delete '$(ansi reset)s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi dim)'."
 				aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
 				if [ $? -ne 0 ]; then
 					log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
@@ -701,12 +709,12 @@ main_process() {
 				for HOUR in $HOURS; do
 					# get the hour on 2 digits
 					HOUR=$(printf "%02d" $(trim "$HOUR" | sed 's/^0//'))
-					# continue the loop if this hour is less than the current hour, or if the directory was already deleted
-					if [ "$HOUR" -gt "$CURRENT_HOUR" ] || [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00" ]; then
+					# continue the loop if this hour is less than the current hour
+					if [ "$HOUR" -gt "$CURRENT_HOUR" ]; then
 						continue;
 					fi
 					# delete the directory
-					log "$(ansi dim)DELETE '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi dim)'."
+					log "├ $(ansi dim)DELETE '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
 					if [ $? -ne 0 ]; then
 						log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
@@ -714,6 +722,7 @@ main_process() {
 				done
 			fi
 		done
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 }
 
