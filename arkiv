@@ -219,6 +219,13 @@ main_config() {
 	if [ "$CONF_SRC" = "" ]; then
 		CONF_SRC="/etc /home"
 	fi
+	# check paths
+	for SRC in $CONF_SRC; do
+		if [ "${SRC:0:1}" != "/" ]; then
+			echo " $(ansi red)⛔ All paths must begin with a '$(ansi reset)/$(ansi red)'. ABORT$(ansi reset)"
+			exit
+		fi
+	done
 	# MySQL
 	CONF_MYSQL="no"
 	read -p " $(ansi yellow)Backup MySQL databases? [Y/n]$(ansi reset) " ANSWER
@@ -511,21 +518,23 @@ main_process() {
 			log "  $(ansi dim)Backup path '$(ansi reset)$SRC$(ansi dim)'.$(ansi reset)"
 			FILENAME=$(filenamize "$SRC")
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
+			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
+			SRC="$(echo "$src" | sed 's/^\///')"
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
 				FILE_EXT="tar.gz"
-				tar czf "$FILEPATH.$FILE_EXT" "$SRC"
+				tar czf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
 				FILE_EXT="tar.bz2"
-				tar cjf "$FILEPATH.$FILE_EXT" "$SRC"
+				tar cjf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			else
 				FILE_EXT="tar.xz"
-				tar cJf "$FILEPATH.$FILE_EXT" "$SRC"
+				tar cJf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			fi
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				log "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 			# add to list
-			FILESLIST="$FILESLIST \"$FILEPATH.$FILE_EXT\""
+			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
@@ -569,7 +578,7 @@ main_process() {
 				FILE_EXT="sql"
 			fi
 			# add to list
-			FILESLIST="$FILESLIST \"$FILEPATH.$FILE_EXT\""
+			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
