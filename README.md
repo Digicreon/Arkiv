@@ -19,7 +19,7 @@ How it works
 - Store data on Amazon S3 for a few weeks/months, if you need to restore them easily.
 - Store data on Amazon Glacier for ever. It's an incredibly cheap storage that should be used instead of Amazon S3 for long-term conservancy.
 
-If your data are backed up every hour (not every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be donfigured for Amazon S3 archives.
+If your data are backed up every hour (not every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be configured for Amazon S3 archives.
 
 ### Step-by-step
 **Starting**
