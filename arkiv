@@ -161,8 +161,11 @@ CONF_AWS_GLACIER=\"$CONF_AWS_GLACIER\""
 CONF_GLACIER_VAULT=\"$CONF_GLACIER_VAULT\""
 	fi
 	RESULT="$RESULT
-CONF_LOCAL_PURGE_DELAY=\"$CONF_LOCAL_PURGE_DELAY\"
+CONF_LOCAL_PURGE_DELAY=\"$CONF_LOCAL_PURGE_DELAY\""
+	if [ "$CONF_AWS_S3" = "yes" ]; then
+		RESULT="$RESULT
 CONF_S3_PURGE_DELAY=\"$CONF_S3_PURGE_DELAY\""
+	fi
 	echo "$RESULT"
 }
 
@@ -353,7 +356,7 @@ main_config() {
 	fi
 	CONF_LOCAL_PURGE_DELAY=$(trim "$ANSWER")
 	if [ "$CONF_LOCAL_PURGE_DELAY" = "" ]; then
-		read -p " $(ansi red)⚠ Are you sure you want to never purge any backup file? [y/N] " ANSWER
+		read -p " $(ansi red)⚠ Are you sure you want to never purge any backup file? [y/N]$(ansi reset) " ANSWER
 		if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
 			echo " $(ansi red)⛔ Empty purge delay. ABORT$(ansi reset)"
 			exit 1
@@ -427,6 +430,43 @@ main_config() {
 		exit 1
 	fi
 	if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
+		# execution days
+		CRON_DAYS="*"
+		read -p " $(ansi yellow)Do you want to launch Arkiv every day? [Y/n]$(ansi reset) " ANSWER
+		ANSWER=$(trim "$ANSWER")
+		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+			echo " $(ansi yellow)What days of the month should Arkiv be launched?$(ansi reset)"
+			echo " $(ansi dim)Give dates in Crontab format, like \"1,11,21,31\" or \"1-5,11-15,20-25\" or \"*/2\".$(ansi reset)"
+			read ANSWER
+			CRON_DAYS=$(trim "$ANSWER")
+			if [ "$CRON_DAYS" = "" ]; then
+				echo " $(ansi red)⛔ Empty value. ABORT$(ansi reset)"
+				exit 1
+			fi
+		elif [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
+			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
+			exit 1
+		fi
+		# execution hours
+		CRON_HOURS="0"
+		if [ "$CONF_FREQUENCY" = "hourly" ]; then
+			CRON_HOURS="*"
+			read -p " $(ansi yellow)Do you want to launch Arkiv every hour? [Y/n]$(ansi reset) " ANSWER
+			ANSWER=$(trim "$ANSWER")
+			if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+				echo " $(ansi yellow)What hours of the day should Arkiv be launched?$(ansi reset)"
+				echo " $(ansi dim)Give hours in Crontab format, like \"0,4,8,12,16,20\" or \"*/4\" or \"0-4,12-16\".$(ansi reset)"
+				read ANSWER
+				CRON_HOURS=$(trim "$ANSWER")
+				if [ "$CRON_HOURS" = "" ]; then
+					echo " $(ansi red)⛔ Empty value. ABORT$(ansi reset)"
+					exit 1
+				fi
+			elif [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
+				echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
+				exit 1
+			fi
+		fi
 		# exec path
 		ARKIV_EXEC_PATH="$PWD"
 		read -p " $(ansi yellow)Path to the $(ansi reset)Arkiv$(ansi yellow) executable program [$ARKIV_EXEC_PATH]$(ansi reset) " ANSWER
@@ -459,17 +499,24 @@ main_config() {
 			echo " $(ansi red)⛔ Directory '$(ansi reset)$CONF_LOG_PATH$(ansi red)' exists but is not writable. ABORT$(ansi reset)"
 			exit 1
 		fi
+		# check
+		echo
+		echo " $(ansi under)HERE IS THE CRONTAB THAT IS ABOUT TO BE ADDED$(ansi reset)"
+		echo "$(ansi dim)# ARKIV backup$(ansi reset)"
+		echo "$(ansi dim)0 $CRON_HOURS $CRON_DAYS * * $ARKIV_EXEC_PATH/arkiv exec >> $CONF_LOG_PATH/arkiv.log 2>&1$(ansi reset)"
+		echo
 		# add to crontab
-		if [ "$CONF_FREQUENCY" = "daily" ]; then
-			echo " $(ansi yellow)⚠ The execution is set to everyday at midnight. You can change it by editing the Crontab.$(ansi reset)"
-			CRONTAB_HOUR="0"
+		read -p " $(ansi yellow)Is it OK for you? [Y/n]$(ansi reset) " ANSWER
+		ANSWER=$(trim "$ANSWER")
+		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+			echo " $(ansi yellow)⚠ No Crontab installation.$(ansi reset)"
+		elif [ "$ANSWER" = "" ] || [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
+			(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRON_HOURS $CRON_DAYS * * $ARKIV_EXEC_PATH/arkiv exec >> $CONF_LOG_PATH/arkiv.log 2>&1") | crontab -
+			echo " $(ansi green)✓ Arkiv was Successfully added to the Crontab$(ansi reset)"
 		else
-			echo " $(ansi yellow)⚠ The execution is set to every hour. You can change it by editing the Crontab.$(ansi reset)"
-			CRONTAB_HOUR="*"
+			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
+			exit 1
 		fi
-		(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRONTAB_HOUR * * * $ARKIV_EXEC_PATH/arkiv exec >> $CONF_LOG_PATH/arkiv.log 2>&1") | crontab -
-		# end of process
-		echo " $(ansi green)✓ Arkiv was Successfully added to the Crontab$(ansi reset)"
 	fi
 	# END
 	echo
