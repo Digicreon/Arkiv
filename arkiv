@@ -484,7 +484,8 @@ main_process() {
 	# log
 	echo "$(ansi rev)------------------------------------------------------------$(ansi reset)"
 	# configuration
-	log "$(ansi dim)Read config file '$(ansi reset)$CONFIG_FILE_PATH$(ansi dim)'.$(ansi reset)"
+	log "$(ansi bold)Start$(ansi reset)"
+	log "├ $(ansi dim)Read config file '$(ansi reset)$CONFIG_FILE_PATH$(ansi dim)'.$(ansi reset)"
 	if [ ! -r "$(eval realpath "$CONFIG_FILE_PATH")" ]; then
 		log "$(ansi red)⛔ Unable to read file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
@@ -497,7 +498,7 @@ main_process() {
 	else
 		CURRENT_DATE=`date +%Y-%m-%d/%H:00`
 	fi
-	log "$(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi dim)'.$(ansi reset)"
+	log "└ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi dim)'.$(ansi reset)"
 	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_DATE"
 	if [ $? -ne 0 ]; then
 		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
@@ -515,7 +516,7 @@ main_process() {
 		log "$(ansi bold)Backup files$(ansi reset)"
 		# loop on paths to backup
 		for SRC in $CONF_SRC; do
-			log "  $(ansi dim)Backup path '$(ansi reset)$SRC$(ansi dim)'.$(ansi reset)"
+			log "├ $(ansi dim)Backup path '$(ansi reset)$SRC$(ansi dim)'.$(ansi reset)"
 			FILENAME=$(filenamize "$SRC")
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
 			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
@@ -541,13 +542,14 @@ main_process() {
 				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
-		echo
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# backup mysql
 	if [ "$CONF_MYSQL" = "yes" ]; then
 		log "$(ansi bold)Backup databases$(ansi reset)"
 		# fetch the list of databases if needed
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
+			log "├ $(ansi dim)Fetch the list of databases$(ansi reset)"
 			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
@@ -556,7 +558,7 @@ main_process() {
 		# loop on databases
 		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
 			# dump MySQL database
-			log "  $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
+			log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
@@ -564,7 +566,7 @@ main_process() {
 				continue
 			fi
 			# compress the dumped file
-			log "  $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME$(ansi bold)'.$(ansi reset)"
+			log "├ $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME$(ansi bold)'.$(ansi reset)"
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
 				FILE_EXT="sql.gz"
 			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
@@ -585,10 +587,10 @@ main_process() {
 				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
-		echo
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# compute checksums
-	log "Compute checksums"
+	log "$(ansi bold)Compute checksums$(ansi reset)"
 	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
 	if [ $? -ne 0 ]; then
 		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
@@ -598,6 +600,7 @@ main_process() {
 	if [ $? -ne 0 ]; then
 		log "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
+	log "└ $(ansi green)Done$(ansi reset)"
 	# archive on Amazon Glacier
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon Glacier$(ansi reset)"
@@ -606,21 +609,22 @@ main_process() {
 			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
 		for FILE in $FILESLIST; do
-			log "  $(ansi dim)Archive file '$(ansi reset)$FILE$$(ansi dim)'.(ansi reset)"
+			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.(ansi reset)"
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 			fi
 		done
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# archive on Amazon S3
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon S3$(ansi reset)"
-		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE
+		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE --quiet
 		if [ $? -ne 0 ]; then
 			log "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE$(ansi yellow)'.$(ansi reset)"
 		fi
-		echo
+		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# purge local files
 	if [ "$CONF_LOCAL_PURGE_DELAY" != "" ]; then
@@ -647,7 +651,7 @@ main_process() {
 				HOURS=$(echo "$HOURS" | tr "," "\n")
 				for HOUR in $HOURS; do
 					# get the hour on 2 digits
-					HOUR=$(printf "%02d" $(trim "$HOUR"))
+					HOUR=$(printf "%02d" $(trim "$HOUR" | sed 's/^0//'))
 					# continue the loop if this hour is less than the current hour, or if the directory was already deleted
 					if [ "$HOUR" -gt "$CURRENT_HOUR" ] || [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00" ]; then
 						continue;
@@ -696,7 +700,7 @@ main_process() {
 				HOURS=$(echo "$HOURS" | tr "," "\n")
 				for HOUR in $HOURS; do
 					# get the hour on 2 digits
-					HOUR=$(printf "%02d" $(trim "$HOUR"))
+					HOUR=$(printf "%02d" $(trim "$HOUR" | sed 's/^0//'))
 					# continue the loop if this hour is less than the current hour, or if the directory was already deleted
 					if [ "$HOUR" -gt "$CURRENT_HOUR" ] || [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00" ]; then
 						continue;
