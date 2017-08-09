@@ -480,7 +480,7 @@ main_config() {
 # Backup files, archive and purge.
 main_exec() {
 	# get current hour (used during purge process)
-	CURRENT_HOUR=`date +"%M"`
+	CURRENT_HOUR=`date +"%H"`
 	# log
 	echo "$(ansi rev)------------------------------------------------------------$(ansi reset)"
 	# configuration
