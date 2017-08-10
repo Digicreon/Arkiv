@@ -375,7 +375,7 @@ main_config() {
 			echo " $(ansi dim)   - A number followed by a duration. Examples: \"3 days\", \"2 weeks\", \"2 months\"$(ansi reset)"
 			echo " $(ansi dim)   - Same as previous, followed by a colon and some hours to purge (separated by comas). Example: \"2 days:02,04,06,08,10;4 days,01,03,05\"$(ansi reset)"
 			echo " $(ansi dim)Advice: Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
-			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,15,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,30;2 months\"$(ansi reset)"
+			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,14,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,20;2 months\"$(ansi reset)"
 			read ANSWER
 		fi
 		CONF_S3_PURGE_DELAY=$(trim "$ANSWER")
