@@ -124,8 +124,7 @@ main_usage() {
 # Uses the global variables defined elsewhere ($CONF_LOCAL_HOSTNAME, $CONF_BACKUP_PATH, etc.).
 # @param	string	(optional) Visibility. Replace the MySQL password by an informative message if this parameter is set to "hide".
 _create_config() {
-	RESULT="CONF_FREQUENCY=\"$CONF_FREQUENCY\"
-CONF_LOCAL_HOSTNAME=\"$CONF_LOCAL_HOSTNAME\"
+	RESULT="CONF_LOCAL_HOSTNAME=\"$CONF_LOCAL_HOSTNAME\"
 CONF_Z_TYPE=\"$CONF_Z_TYPE\"
 CONF_BACKUP_PATH=\"$CONF_BACKUP_PATH\"
 CONF_SRC=\"$CONF_SRC\"
@@ -182,13 +181,13 @@ main_config() {
 	echo
 	# BASIC
 	echo "$(ansi rev yellow) BASIC                   $(ansi reset)"
-	# daily/hourly
-	read -p " $(ansi yellow)Do you want to backup your data every $(ansi bold)day$(ansi reset)$(ansi yellow) or every $(ansi bold)hour$(ansi reset)$(ansi yellow)? [Day/hour] $(ansi reset) " ANSWER
-	ANSWER=$(trim "$ANSWER")
-	if [ "$ANSWER" = "" ] || [ "$ANSWER" = "d" ] || [ "$ANSWER" = "D" ] || [ "$ANSWER" = "day" ] || [ "$ANSWER" = "Day" ] || [ "$ANSWER" = "DAY" ]; then
-		CONF_FREQUENCY="daily"
-	elif [ "$ANSWER" = "h" ] || [ "$ANSWER" = "H" ] || [ "$ANSWER" = "hour" ] || [ "$ANSWER" = "Hour" ] || [ "$ANSWER" = "HOUR" ]; then
-		CONF_FREQUENCY="hourly"
+	# simple mode
+	read -p " $(ansi yellow)Do you want to set up Arkiv's simple mode? (one backup per day, every day) [Y/n]$(ansi reset) " ANSWER
+	SIMPLE_MODE=$(trim "$ANSWER")
+	if [ "$SIMPLE_MODE" = "" ] || [ "$SIMPLE_MODE" = "y" ] || [ "$SIMPLE_MODE" = "Y" ]; then
+		SIMPLE_MODE="yes"
+	elif [ "$SIMPLE_MODE" = "n" ] || [ "$SIMPLE_MODE" = "N" ]; then
+		SIMPLE_MODE="no"
 	else
 		echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
 		exit 1
@@ -340,7 +339,7 @@ main_config() {
 	echo
 	echo "$(ansi rev red) PURGE                   $(ansi reset)"
 	# local purge
-	if [ "$CONF_FREQUENCY" = "daily" ]; then
+	if [ "$SIMPLE_MODE" = "yes" ]; then
 		# daily backups
 		read -p " $(ansi yellow)Delay for local purge?$(ansi reset) $(ansi dim)(examples: \"$(ansi reset)3 days$(ansi dim)\" \"$(ansi reset)2 weeks$(ansi dim)\" \"$(ansi reset)2 months$(ansi dim)\")$(ansi reset) " ANSWER
 	else
@@ -350,8 +349,8 @@ main_config() {
 		echo " $(ansi dim)Each delay could be written like:$(ansi reset)"
 		echo " $(ansi dim)   - A number followed by a duration. Examples: \"3 days\", \"2 weeks\", \"2 months\"$(ansi reset)"
 		echo " $(ansi dim)   - Same as previous, followed by a colon and some hours to purge (separated by comas). Example: \"2 days:02,04,06,08,10;4 days,01,03,05\"$(ansi reset)"
-		echo " $(ansi dim)Advice: Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
-		echo " $(ansi dim)        Like \"2 days:01,03,05,07,09,11,13,15,17,19,21,23;1 week:02,04,06,10,12,14,18,20,22;2 weeks:08,16;1 month\"$(ansi reset)"
+		echo " $(ansi dim)$(ansi bold)Advice:$(ansi reset)$(ansi dim) Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
+		echo " $(ansi dim)        Like \"2 days:01,03,05,07,09,11,13,15,17,19,21,23;1 week:02,04,06,10,12,14,18,20,22;2 weeks:08,16;$(ansi bold)1 month$(ansi reset)$(ansi dim)\"$(ansi reset)"
 		read ANSWER
 	fi
 	CONF_LOCAL_PURGE_DELAY=$(trim "$ANSWER")
@@ -364,7 +363,7 @@ main_config() {
 	fi
 	# S3 purge
 	if [ "$CONF_AWS_S3" = "yes" ]; then
-		if [ "$CONF_FREQUENCY" = "daily" ]; then
+		if [ "$SIMPLE_MODE" = "yes" ]; then
 			# daily backups
 			read -p " $(ansi yellow)Delay for Amazon S3 purge?$(ansi reset) $(ansi dim)(examples: \"$(ansi reset)3 days$(ansi dim)\" \"$(ansi reset)2 weeks$(ansi dim)\" \"$(ansi reset)2 months$(ansi dim)\")$(ansi reset) " ANSWER
 		else
@@ -374,8 +373,8 @@ main_config() {
 			echo " $(ansi dim)Each delay could be written like:$(ansi reset)"
 			echo " $(ansi dim)   - A number followed by a duration. Examples: \"3 days\", \"2 weeks\", \"2 months\"$(ansi reset)"
 			echo " $(ansi dim)   - Same as previous, followed by a colon and some hours to purge (separated by comas). Example: \"2 days:02,04,06,08,10;4 days,01,03,05\"$(ansi reset)"
-			echo " $(ansi dim)Advice: Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
-			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,14,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,20;2 months\"$(ansi reset)"
+			echo " $(ansi dim)$(ansi bold)Advice:$(ansi reset)$(ansi dim) Even if you purge on different hours, be sure to purge everything after a given delay.$(ansi reset)"
+			echo " $(ansi dim)        Like \"1 week:01,02,03,05,06,07,09,10,11,13,14,15,17,18,19,21,22,23;2 weeks:00,08,16;1 month:12,20;$(ansi bold)2 months$(ansi reset)$(ansi dim)\"$(ansi reset)"
 			read ANSWER
 		fi
 		CONF_S3_PURGE_DELAY=$(trim "$ANSWER")
@@ -430,41 +429,27 @@ main_config() {
 		exit 1
 	fi
 	if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
-		# execution days
-		CRON_DAYS="*"
-		read -p " $(ansi yellow)Do you want to launch Arkiv every day? [Y/n]$(ansi reset) " ANSWER
-		ANSWER=$(trim "$ANSWER")
-		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
-			echo " $(ansi yellow)What days of the month should Arkiv be launched?$(ansi reset)"
+		if [ "$SIMPLE_MODE" = "yes" ]; then
+			CRON_DAYS="*"
+			CRON_HOURS="0"
+		else
+			# execution days
+			echo " $(ansi yellow)What days of the month should Arkiv be launched? [*]$(ansi reset)"
 			echo " $(ansi dim)Give dates in Crontab format, like \"1,11,21,31\" or \"1-5,11-15,20-25\" or \"*/2\".$(ansi reset)"
+			echo " $(ansi dim)Use \"*\" (default value) to launch Arkiv every day.$(ansi reset)"
 			read ANSWER
 			CRON_DAYS=$(trim "$ANSWER")
 			if [ "$CRON_DAYS" = "" ]; then
-				echo " $(ansi red)⛔ Empty value. ABORT$(ansi reset)"
-				exit 1
+				CRON_DAYS="*"
 			fi
-		elif [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
-			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
-			exit 1
-		fi
-		# execution hours
-		CRON_HOURS="0"
-		if [ "$CONF_FREQUENCY" = "hourly" ]; then
-			CRON_HOURS="*"
-			read -p " $(ansi yellow)Do you want to launch Arkiv every hour? [Y/n]$(ansi reset) " ANSWER
-			ANSWER=$(trim "$ANSWER")
-			if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
-				echo " $(ansi yellow)What hours of the day should Arkiv be launched?$(ansi reset)"
-				echo " $(ansi dim)Give hours in Crontab format, like \"0,4,8,12,16,20\" or \"*/4\" or \"0-4,12-16\".$(ansi reset)"
-				read ANSWER
-				CRON_HOURS=$(trim "$ANSWER")
-				if [ "$CRON_HOURS" = "" ]; then
-					echo " $(ansi red)⛔ Empty value. ABORT$(ansi reset)"
-					exit 1
-				fi
-			elif [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
-				echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
-				exit 1
+			# execution hours
+			echo " $(ansi yellow)What hours of the day should Arkiv be launched? [*]$(ansi reset)"
+			echo " $(ansi dim)Give hours in Crontab format, like \"0,4,8,12,16,20\" or \"*/4\" or \"0-4,12-16\".$(ansi reset)"
+			echo " $(ansi dim)Use \"*\" (default value) to launch Arkiv every hour.$(ansi reset)"
+			read ANSWER
+			CRON_HOURS=$(trim "$ANSWER")
+			if [ "$CRON_HOURS" = "" ]; then
+				CRON_HOURS="*"
 			fi
 		fi
 		# exec path
@@ -540,20 +525,16 @@ main_exec() {
 		. "$(eval realpath "$CONFIG_FILE_PATH")"
 	fi
 	# create destination directory
-	if [ "$CONF_FREQUENCY" = "daily" ]; then
-		CURRENT_DATE=`date +%Y-%m-%d`
-	else
-		CURRENT_DATE=`date +%Y-%m-%d/%H:00`
-	fi
-	log "├ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi dim)'.$(ansi reset)"
-	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_DATE"
+	CURRENT_PATH=`date +%Y-%m-%d/%H:00`
+	log "├ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi dim)'.$(ansi reset)"
+	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	if [ $? -ne 0 ]; then
-		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
+		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
-	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_DATE"
+	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	if [ $? -ne 0 ]; then
-		log "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi red)'. ABORT$(ansi reset)"
+		log "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
 	log "└ $(ansi green)Done$(ansi reset)"
@@ -566,7 +547,7 @@ main_exec() {
 		for SRC in $CONF_SRC; do
 			log "├ $(ansi dim)Backup path '$(ansi reset)$SRC$(ansi dim)'.$(ansi reset)"
 			FILENAME=$(filenamize "$SRC")
-			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$FILENAME"
+			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$FILENAME"
 			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
 			SRC="$(echo "$SRC" | sed 's/^\///')"
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
@@ -607,7 +588,7 @@ main_exec() {
 		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
 			# dump MySQL database
 			log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
-			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_DATE/$DB_NAME"
+			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
 				log "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
@@ -639,22 +620,22 @@ main_exec() {
 	fi
 	# compute checksums
 	log "$(ansi bold)Compute checksums$(ansi reset)"
-	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
+	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
 	if [ $? -ne 0 ]; then
-		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
+		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
 	# change cheksum file rights
-	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums"
+	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
 	if [ $? -ne 0 ]; then
-		log "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)'.$(ansi reset)"
+		log "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
 	log "└ $(ansi green)Done$(ansi reset)"
 	# archive on Amazon Glacier
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon Glacier$(ansi reset)"
-		aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums" > "$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums.glacier.json"
+		aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums" > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums.glacier.json"
 		if [ $? -ne 0 ]; then
-			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
+			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
 		for FILE in $FILESLIST; do
 			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.$(ansi reset)"
@@ -668,9 +649,9 @@ main_exec() {
 	# archive on Amazon S3
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon S3$(ansi reset)"
-		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_DATE s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE --quiet
+		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_PATH s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH --quiet
 		if [ $? -ne 0 ]; then
-			log "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_DATE$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_DATE$(ansi yellow)'.$(ansi reset)"
+			log "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH$(ansi yellow)'.$(ansi reset)"
 		fi
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
@@ -709,8 +690,8 @@ main_exec() {
 				for HOUR in $HOURS; do
 					# get the hour on 2 digits
 					HOUR=$(printf "%02d" $(trim "$HOUR" | sed 's/^0//'))
-					# continue the loop if this hour is less than the current hour, or if the directory was already deleted
-					if [ "$HOUR" -gt "$CURRENT_HOUR" ] || [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00" ]; then
+					# continue the loop if this hour is not equal to the current hour, or if the directory was already deleted
+					if [ "$HOUR" != "$CURRENT_HOUR" ] || [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00" ]; then
 						continue;
 					fi
 					# delete the directory
@@ -764,8 +745,8 @@ main_exec() {
 				for HOUR in $HOURS; do
 					# get the hour on 2 digits
 					HOUR=$(printf "%02d" $(trim "$HOUR" | sed 's/^0//'))
-					# continue the loop if this hour is less than the current hour
-					if [ "$HOUR" -gt "$CURRENT_HOUR" ]; then
+					# continue the loop if this hour is not equal to the current hour
+					if [ "$HOUR" != "$CURRENT_HOUR" ]; then
 						continue;
 					fi
 					# delete the directory
