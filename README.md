@@ -116,6 +116,11 @@ Finally, the program could add the Arkiv execution to the user's crontab.
 Frequently Asked Questions
 --------------------------
 
+### I choose simple mode configuration (one backup per day, every day). Why is there a directory called "00:00" in the backup directory of the day?
+This directory means that your Arkiv backup process is launched at midnight.
+
+You'd think that the backed up data would have be stored directly in the directory of the day, without a sub-directory for the hour (because there is only one every day). But if some day you'd want to do many backups per day, it would have trouble to manage purges.
+
 ### How much will I pay on Amazon S3/Glacier?
 You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws.com/index.html) to estimate the cost depending of your usage.
 
