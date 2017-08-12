@@ -119,7 +119,7 @@ Frequently Asked Questions
 ### I choose simple mode configuration (one backup per day, every day). Why is there a directory called "00:00" in the backup directory of the day?
 This directory means that your Arkiv backup process is launched at midnight.
 
-You'd think that the backed up data would have be stored directly in the directory of the day, without a sub-directory for the hour (because there is only one every day). But if some day you'd want to do many backups per day, it would have trouble to manage purges.
+You'd think that the backed up data would have be stored directly in the directory of the day, without a sub-directory for the hour (because there is only one backup per day). But if someday you'd want to change the configuration and do many backups per day, Arkiv would have trouble to manage purges.
 
 ### How much will I pay on Amazon S3/Glacier?
 You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws.com/index.html) to estimate the cost depending of your usage.
@@ -168,6 +168,13 @@ or
 ```
 
 You can modify the Crontab to add the path too.
+
+### Is it possible to execute Arkiv without any output on STDOUT and/or STDERR?
+Yes, you just have to add some options on the command line:
+- `--no-stdout` to avoid output on STDOUT
+- `--no-stderr` to avoid output on STDERR
+
+You can use these options separately or together.
 
 ### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
 When a file is sent to Amazon Glacier, you get an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
