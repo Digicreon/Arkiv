@@ -116,8 +116,11 @@ ansi() {
 # Write a character string with the current date before it to stdout or to the log file.
 # @param	string	The text to write.
 log() {
-	CURDATE=`date +"%Y-%m-%d %H:%M:%S%:z"`
-	STR="$(ansi dim)[$CURDATE]$(ansi reset) $1"
+	if [ "$1" = "-n" ]; then
+		STR="$2"
+	else
+		STR="$(ansi dim)[$(date +"%Y-%m-%d %H:%M:%S%:z")]$(ansi reset) $TXT"
+	fi
 	# write to stdout unless it is disabled
 	if [ "$OPT_NOSTDOUT" != "1" ]; then
 		echo $STR
@@ -586,12 +589,12 @@ main_exec() {
 	# get current hour (used during purge process)
 	CURRENT_HOUR=`date +"%H"`
 	# log
-	echo "$(ansi rev)------------------------------------------------------------$(ansi reset)"
+	log -n "$(ansi rev)------------------------------------------------------------$(ansi reset)"
 	# configuration
 	log "$(ansi bold)Start$(ansi reset)"
 	log "├ $(ansi dim)Read config file '$(ansi reset)$CONFIG_FILE_PATH$(ansi dim)'.$(ansi reset)"
 	if [ ! -r "$(eval realpath "$CONFIG_FILE_PATH")" ]; then
-		log "$(ansi red)⛔ Unable to read file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
+		err "$(ansi red)⛔ Unable to read file '$(ansi reset)$CONFIG_FILE_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	else
 		. "$(eval realpath "$CONFIG_FILE_PATH")"
@@ -601,12 +604,12 @@ main_exec() {
 	log "├ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi dim)'.$(ansi reset)"
 	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	if [ $? -ne 0 ]; then
-		log "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
+		err "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
 	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	if [ $? -ne 0 ]; then
-		log "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
+		err "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
 	log "└ $(ansi green)Done$(ansi reset)"
@@ -633,14 +636,14 @@ main_exec() {
 				tar cJf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			fi
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 			# add to list
 			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
@@ -653,7 +656,7 @@ main_exec() {
 			log "├ $(ansi dim)Fetch the list of databases$(ansi reset)"
 			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
 			fi
 		fi
 		# loop on databases
@@ -663,7 +666,7 @@ main_exec() {
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$DB_NAME"
 			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
 				continue
 			fi
 			# compress the dumped file
@@ -677,7 +680,7 @@ main_exec() {
 			fi
 			echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
 				FILE_EXT="sql"
 			fi
 			# add to list
@@ -685,7 +688,7 @@ main_exec() {
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
 			fi
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
@@ -694,12 +697,12 @@ main_exec() {
 	log "$(ansi bold)Compute checksums$(ansi reset)"
 	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
 	if [ $? -ne 0 ]; then
-		log "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
+		err "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
 	# change cheksum file rights
 	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
 	if [ $? -ne 0 ]; then
-		log "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
+		err "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
 	log "└ $(ansi green)Done$(ansi reset)"
 	# archive on Amazon Glacier
@@ -707,13 +710,13 @@ main_exec() {
 		log "$(ansi bold)Archiving on Amazon Glacier$(ansi reset)"
 		aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums" > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums.glacier.json"
 		if [ $? -ne 0 ]; then
-			log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
+			err "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
 		for FILE in $FILESLIST; do
 			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.$(ansi reset)"
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
-				log "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$FILE$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 			fi
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
@@ -723,7 +726,7 @@ main_exec() {
 		log "$(ansi bold)Archiving on Amazon S3$(ansi reset)"
 		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_PATH s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH --quiet
 		if [ $? -ne 0 ]; then
-			log "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH$(ansi yellow)'.$(ansi reset)"
+			err "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH$(ansi yellow)'.$(ansi reset)"
 		fi
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
@@ -748,7 +751,7 @@ main_exec() {
 				log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 				rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
 				if [ $? -ne 0 ]; then
-					log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
+					err "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
 				fi
 			else
 				# get the list of hours to delete
@@ -770,7 +773,7 @@ main_exec() {
 					log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00"
 					if [ $? -ne 0 ]; then
-						log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
+						err "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
 					fi
 				done
 				# delete the whole day's directory if it's empty
@@ -779,7 +782,7 @@ main_exec() {
 					log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
 					if [ $? -ne 0 ]; then
-						log "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
+						err "$(ansi yellow)⚠ Unable to purge local directory '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
 					fi
 				fi
 			fi
@@ -803,7 +806,7 @@ main_exec() {
 				log "├ $(ansi dim)Delete '$(ansi reset)s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi dim)'."
 				aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
 				if [ $? -ne 0 ]; then
-					log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
+					err "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE$(ansi yellow)'.$(ansi reset)"
 				fi
 			else
 				# get the list of hours to delete
@@ -825,7 +828,7 @@ main_exec() {
 					log "├ $(ansi dim)Delete '$(ansi reset)s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi dim)'."
 					aws s3 rm s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00/ --recursive --exclude "sha256sums" --exclude "*.glacier.json"
 					if [ $? -ne 0 ]; then
-						log "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
+						err "$(ansi yellow)⚠ Unable to purge S3 directory '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$PURGE_DATE/$HOUR:00$(ansi yellow)'.$(ansi reset)"
 					fi
 				done
 			fi
@@ -833,7 +836,7 @@ main_exec() {
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	log "$(ansi green)✓ End of processing$(ansi reset)"
-	echo
+	log -n ""
 }
 
 
