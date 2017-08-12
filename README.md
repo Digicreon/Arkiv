@@ -138,7 +138,7 @@ Here are some helpful links:
 
 The default usage is `xz`, because a reduced file size means faster file transfers over a network.
 
-### On daily backups, how to set up Arkiv to be executed at another time than midnight?
+### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
 You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
 ```shell
 # crontab -e
@@ -155,12 +155,16 @@ You can add the path to the configuration file as a parameter of the program on 
 
 To generate the configuration file:
 ```shell
-# ./arkiv config /path/to/config/file
+# ./arkiv config -c /path/to/config/file
+or
+# ./arkiv config --config=/path/to/config/file
 ```
 
 To launch Arkiv:
 ```shell
-# ./arkiv exec /path/to/config/file
+# ./arkiv exec -c /path/to/config/file
+or
+# ./arkiv exec --config=/path/to/config/file
 ```
 
 You can modify the Crontab to add the path too.
@@ -181,12 +185,22 @@ MAILTO=your.email@domain.com
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ```
 
+### How to receive an email alert when an error occurs (or even just a warning)?
+Add a `MAILTO` environment variable at the beginning of your Crontab.
+
+As said in the previous answer, you can add these three lines:
+```shell
+TERM=xterm
+MAILTO=your.email@domain.com
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
 ### I open the Arkiv log file with less, and it's full of strange characters
 Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
 To enable it, you have to use the option `-r` or `-R`.
 
 ### How to get pure text (without ANSI commands) in Arkiv's log file?
-Add the option `--noansi` on the command line or in the Crontab command.
+Add the option `--noansi` (or just `-n`) on the command line or in the Crontab command.
 
 ### Why is Arkiv compatible only with Bash interpreter?
 Because the `read` buitin command has a `-s` parameter for silent input (used for MySQL password input without showing it), unavailable on `dash` or `zsh` (for example).
