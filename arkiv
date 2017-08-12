@@ -8,13 +8,30 @@
 #
 # © 2017, Amaury Bouchard <amaury@amaury.net>
 
+# ########## GLOBAL VARIABLES ##########
+
 # Path to the configuration file.
 # @see	main_usage()
 CONFIG_FILE_PATH="~/.arkiv"
 
-# noansi mode
+# Path to the log file
 # @see	main_usage()
-NOANSI_MODE=0
+OPT_LOG_PATH=""
+
+# no-ansi mode
+# @see	main_usage()
+OPT_NOANSI=0
+
+# no-stdout mode
+# @see	main_usage()
+OPT_NOSTDOUT=0
+
+# no-stderr mode
+# @see	main_usage()
+OPT_NOSTDERR=0
+
+
+# ########## FUNCTIONS ##########
 
 # trim()
 # Remove spaces at the beginning and at the end of a character string.
@@ -43,7 +60,7 @@ filenamize() {
 #			- under: Write underlined text.
 #			- black, red, green, yellow, blue, magenta, cyan, white: Change the text color.
 ansi() {
-	if [ "$TERM" = "" ] || [ "$NOANSI_MODE" = "1" ]; then
+	if [ "$TERM" = "" ] || [ "$OPT_NOANSI" = "1" ]; then
 		return
 	fi
 	case "$1" in
@@ -96,11 +113,35 @@ ansi() {
 }
 
 # log()
-# Write a character string with the current date before it.
+# Write a character string with the current date before it to stdout or to the log file.
 # @param	string	The text to write.
 log() {
 	CURDATE=`date +"%Y-%m-%d %H:%M:%S%:z"`
-	echo "$(ansi dim)[$CURDATE]$(ansi reset) $1"
+	STR="$(ansi dim)[$CURDATE]$(ansi reset) $1"
+	# write to stdout unless it is disabled
+	if [ "$OPT_NOSTDOUT" != "1" ]; then
+		echo $STR
+	fi
+	# write to log file
+	if [ "$OPT_LOG_PATH" != "" ]; then
+		echo "$STR" >> "$(eval realpath "$OPT_LOG_PATH")"
+	fi
+}
+
+# err()
+# Write a character string with the current date before it to stderr or to the log file.
+# @param	string	The text to write.
+err() {
+	CURDATE=`date +"%Y-%m-%d %H:%M:%S%:z"`
+	STR="$(ansi dim)[$CURDATE]$(ansi reset) $1"
+	# write to stdout unless it is disabled
+	if [ "$OPT_NOSTDOUT" != "1" ]; then
+		(>&2 echo "$STR")
+	fi
+	# write to log file
+	if [ "$OPT_LOG_PATH" != "" ]; then
+		echo "$STR" >> "$(eval realpath "$OPT_LOG_PATH")"
+	fi
 }
 
 # main_usage()
@@ -111,7 +152,7 @@ main_usage() {
 	echo "        $(ansi bold)Arkiv$(ansi reset) − Backup and archiving tool"
 	echo
 	echo "$(ansi bold)SYNOPSIS$(ansi reset)"
-	echo "        $(ansi bold)arkiv$(ansi reset) help$(ansi dim)|$(ansi reset)config$(ansi dim)|$(ansi reset)exec [-n|--noansi] [-c $(ansi dim)/path/to/config/file$(ansi reset)|--config$(ansi dim)=/path/to/config/file$(ansi reset)]"
+	echo "        $(ansi bold)arkiv$(ansi reset) help$(ansi dim)|$(ansi reset)config$(ansi dim)|$(ansi reset)exec [-c|--config$(ansi dim)=/path/to/config/file$(ansi reset)] [-l|--log$(ansi dim)=/path/to/log/file$(ansi reset)] [-o|--no-stdout] [-e|--no-stderr] [-n|--noansi]"
 	echo
 	echo "$(ansi bold)DESCRIPTION$(ansi reset)"
 	echo "        $(ansi bold)Arkiv$(ansi reset) is an easy-to-use tool which provides files and MySQL databases backup, and archiving to Amazon S3 and Amazon Glacier."
@@ -125,12 +166,22 @@ main_usage() {
 	echo "                Backup files and databases, archive them and purge old files."
 	echo
 	echo "$(ansi bold)PARAMETERS$(ansi reset)"
-	echo "        $(ansi bold)-n, --noansi$(ansi reset)"
-	echo "                Don't use ANSI commands to ouput decorated text (colors, bold, reverse video)."
-	echo
-	echo "        $(ansi bold)-c$(ansi reset) $(ansi dim)/path/to/config/file$(ansi reset)"
+	echo "              $(ansi bold)-c$(ansi reset) $(ansi dim)/path/to/config/file$(ansi reset)"
 	echo "        $(ansi bold)--config$(ansi reset)$(ansi dim)=/path/to/config/file$(ansi reset)"
 	echo "                Path to the configuration file to use instead of '~/.arkiv'."
+	echo
+	echo "           $(ansi bold)-l$(ansi reset) $(ansi dim)/path/to/log/file$(ansi reset)"
+	echo "        $(ansi bold)--log$(ansi reset)$(ansi dim)=/path/to/log/file$(ansi reset)"
+	echo "                Path to the log file to use."
+	echo
+	echo "        $(ansi bold)-o, --no-stdout$(ansi reset)"
+	echo "                Don't write informational log messages to STDOUT. If the log file is defined (option --log), messages will be written there anyway."
+	echo
+	echo "        $(ansi bold)-e, --no-stderr$(ansi reset)"
+	echo "                Don't write error log messages to STDERR. If the log file is defined (option --log), messages will be written there anyway."
+	echo
+	echo "        $(ansi bold)-n, --no-ansi$(ansi reset)"
+	echo "                Don't use ANSI commands to ouput decorated text (colors, bold, reverse video)."
 	echo
 	exit 0
 }
@@ -480,31 +531,36 @@ main_config() {
 			exit 1
 		fi
 		# log path
-		read -p " $(ansi yellow)Path to log directory? [/var/log/arkiv]$(ansi reset) " ANSWER
-		CRON_LOG_PATH=$(trim "$ANSWER")
-		if [ "$CRON_LOG_PATH" = "" ]; then
-			CRON_LOG_PATH="/var/log/arkiv"
+		if [ "$OPT_LOG_PATH" != "" ];
+			CRON_LOG_PATH="$OPT_LOG_PATH"
+		else
+			read -p " $(ansi yellow)Path to log file? [/var/log/arkiv/arkiv.log]$(ansi reset) " ANSWER
+			CRON_LOG_PATH=$(trim "$ANSWER")
+			if [ "$CRON_LOG_PATH" = "" ]; then
+				CRON_LOG_PATH="/var/log/arkiv/arkiv.log"
+			fi
 		fi
-		if [ ! -d $CRON_LOG_PATH ]; then
-			read -p " $(ansi yellow)Directory '$(ansi reset)$CRON_LOG_PATH$(ansi yellow)' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
+		CRON_LOG_DIR=$(dirname "$CRON_LOG_PATH")
+		if [ ! -d $CRON_LOG_DIR ]; then
+			read -p " $(ansi yellow)Directory '$(ansi reset)$CRON_LOG_DIR$(ansi yellow)' doesn't exist. Create it? [Y/n]$(ansi reset) " ANSWER
 			if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 				echo " $(ansi red)⛔ ABORT$(ansi reset)"
 				exit 1
 			fi
-			if ! mkdir -p $CRON_LOG_PATH; then
-				echo " $(ansi red)⛔ Unable to create directory '$(ansi reset)$CRON_LOG_PATH$(ansi red)'. ABORT$(ansi reset)"
+			if ! mkdir -p $CRON_LOG_DIR; then
+				echo " $(ansi red)⛔ Unable to create directory '$(ansi reset)$CRON_LOG_DIR$(ansi red)'. ABORT$(ansi reset)"
 				exit 1
 			fi
-			chmod 770 $CRON_LOG_PATH
-		elif [ ! -w $CRON_LOG_PATH ]; then
-			echo " $(ansi red)⛔ Directory '$(ansi reset)$CRON_LOG_PATH$(ansi red)' exists but is not writable. ABORT$(ansi reset)"
+			chmod 770 $CRON_LOG_DIR
+		elif [ ! -w $CRON_LOG_DIR ]; then
+			echo " $(ansi red)⛔ Directory '$(ansi reset)$CRON_LOG_DIR$(ansi red)' exists but is not writable. ABORT$(ansi reset)"
 			exit 1
 		fi
 		# check
 		echo
 		echo " $(ansi under)HERE IS THE CRONTAB THAT IS ABOUT TO BE ADDED$(ansi reset)"
 		echo "$(ansi dim)# ARKIV backup$(ansi reset)"
-		echo "$(ansi dim)0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec >> $CRON_LOG_PATH/arkiv.log 2>&1$(ansi reset)"
+		echo "$(ansi dim)0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --log=$CRON_LOG_PATH --no-stdout$(ansi reset)"
 		echo
 		# add to crontab
 		read -p " $(ansi yellow)Is it OK for you? [Y/n]$(ansi reset) " ANSWER
@@ -512,7 +568,7 @@ main_config() {
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			echo " $(ansi yellow)⚠ No Crontab installation.$(ansi reset)"
 		elif [ "$ANSWER" = "" ] || [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
-			(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec >> $CRON_LOG_PATH/arkiv.log 2>&1") | crontab -
+			(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --log=$CRON_LOG_PATH --no-stdout") | crontab -
 			echo " $(ansi green)✓ Arkiv was Successfully added to the Crontab$(ansi reset)"
 		else
 			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
@@ -780,9 +836,11 @@ main_exec() {
 	echo
 }
 
+
+# ########## MAIN EXECUTION ##########
+
 # parsing command-line options
 # @see	https://stackoverflow.com/questions/402377/using-getopts-in-bash-shell-script-to-get-long-and-short-command-line-options/7680682#7680682
-# main execution
 case "$1" in
 	"config")
 		EXEC_TYPE="config"
@@ -795,17 +853,24 @@ case "$1" in
 		;;
 esac
 shift
-while getopts ":nc:-:" OPTCHAR; do
+while getopts ":c:l:oen-:" OPTCHAR; do
 	case "$OPTCHAR" in
 		"-")
 			case "$OPTARG" in
-				"noansi")
-					echo "--noansi option"
-					NOANSI_MODE=1
-					;;
 				config=*)
-					echo "--config option"
 					CONFIG_FILE_PATH=${OPTARG#*=}
+					;;
+				log=*)
+					OPT_LOG_PATH=${OPTARG#*=}
+					;;
+				"no-stdout")
+					OPT_NOSTDOUT=1
+					;;
+				"no-stderr")
+					OPT_NOSTDERR=1
+					;;
+				"no-ansi")
+					OPT_NOANSI=1
 					;;
 				*)
 					log "$(ansi red)⛔ Bad command line option '--$OPTARG'. ABORT$(ansi reset)"
@@ -813,12 +878,20 @@ while getopts ":nc:-:" OPTCHAR; do
 					exit 1
 			esac
 			;;
-		"n")
-			echo "-n option"
-			NOANSI_MODE=1
-			;;
 		"c")
-			echo "-c option"
+			CONFIG_FILE_PATH="$OPTARG"
+			;;
+		"l")
+			OPT_LOG_PATH="$OPTARG"
+			;;
+		"o")
+			OPT_NOSTDOUT=1
+			;;
+		"e")
+			OPT_NOSTDERR=1
+			;;
+		"n")
+			OPT_NOANSI=1
 			;;
 		*)
 			log "$(ansi red)⛔ Bad command line option '-$OPTARG'. ABORT$(ansi reset)"
