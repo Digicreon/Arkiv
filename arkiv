@@ -7,6 +7,9 @@
 # Source code and documentation: https://github.com/Amaury/Arkiv
 #
 # © 2017, Amaury Bouchard <amaury@amaury.net>
+#
+# @see	Getopts: https://stackoverflow.com/questions/402377/using-getopts-in-bash-shell-script-to-get-long-and-short-command-line-options/7680682#7680682
+# @see	Encryption: https://superuser.com/questions/724986/how-to-use-password-argument-in-via-command-line-to-openssl-for-decryption
 
 # ########## GLOBAL VARIABLES ##########
 
@@ -29,6 +32,10 @@ OPT_NOSTDOUT=0
 # no-stderr mode
 # @see	main_usage()
 OPT_NOSTDERR=0
+
+# Write to syslog option.
+# @see	main_usage()
+OPT_SYSLOG=0
 
 
 # ########## FUNCTIONS ##########
@@ -129,6 +136,10 @@ log() {
 	if [ "$OPT_LOG_PATH" != "" ]; then
 		echo "$STR" >> "$(eval realpath "$OPT_LOG_PATH")"
 	fi
+	# write to syslog
+	if [ "$OPT_SYSLOG" = "1" ]; then
+		logger --tag arkiv --priority user.warning "$TXT"
+	fi
 }
 
 # err()
@@ -145,6 +156,10 @@ err() {
 	if [ "$OPT_LOG_PATH" != "" ]; then
 		echo "$STR" >> "$(eval realpath "$OPT_LOG_PATH")"
 	fi
+	# write to syslog
+	if [ "$OPT_SYSLOG" = "1" ]; then
+		logger --tag arkiv --priority user.warning "$TXT"
+	fi
 }
 
 # main_usage()
@@ -155,7 +170,7 @@ main_usage() {
 	echo "        $(ansi bold)Arkiv$(ansi reset) − Backup and archiving tool"
 	echo
 	echo "$(ansi bold)SYNOPSIS$(ansi reset)"
-	echo "        $(ansi bold)arkiv$(ansi reset) help$(ansi dim)|$(ansi reset)config$(ansi dim)|$(ansi reset)exec [-c|--config$(ansi dim)=/path/to/config/file$(ansi reset)] [-l|--log$(ansi dim)=/path/to/log/file$(ansi reset)] [-o|--no-stdout] [-e|--no-stderr] [-n|--noansi]"
+	echo "        $(ansi bold)arkiv$(ansi reset) help$(ansi dim)|$(ansi reset)config$(ansi dim)|$(ansi reset)exec [-c|--config$(ansi dim)=/path/to/config/file$(ansi reset)] [-l|--log$(ansi dim)=/path/to/log/file$(ansi reset)] [-o|--no-stdout] [-e|--no-stderr] [-n|--noansi] [-s|--syslog]"
 	echo
 	echo "$(ansi bold)DESCRIPTION$(ansi reset)"
 	echo "        $(ansi bold)Arkiv$(ansi reset) is an easy-to-use tool which provides files and MySQL databases backup, and archiving to Amazon S3 and Amazon Glacier."
@@ -185,6 +200,9 @@ main_usage() {
 	echo
 	echo "        $(ansi bold)-n, --no-ansi$(ansi reset)"
 	echo "                Don't use ANSI commands to ouput decorated text (colors, bold, reverse video)."
+	echo
+	echo "        $(ansi bold)-s, --syslog$(ansi reset)"
+	echo "                Write logs also to syslog."
 	echo
 	echo "$(ansi bold)SEE ALSO$(ansi reset)"
 	echo "        More documentation available on GitHub: $(ansi under)https://github.com/Amaury/Arkiv$(ansi reset)"
@@ -584,7 +602,7 @@ main_config() {
 			exit 1
 		fi
 		# log path
-		if [ "$OPT_LOG_PATH" != "" ];
+		if [ "$OPT_LOG_PATH" != "" ]; then
 			CRON_LOG_PATH="$OPT_LOG_PATH"
 		else
 			read -p " $(ansi yellow)Path to log file? [/var/log/arkiv/arkiv.log]$(ansi reset) " ANSWER
@@ -910,7 +928,6 @@ main_exec() {
 # ########## MAIN EXECUTION ##########
 
 # parsing command-line options
-# @see	https://stackoverflow.com/questions/402377/using-getopts-in-bash-shell-script-to-get-long-and-short-command-line-options/7680682#7680682
 case "$1" in
 	"config")
 		EXEC_TYPE="config"
@@ -942,6 +959,9 @@ while getopts ":c:l:oen-:" OPTCHAR; do
 				"no-ansi")
 					OPT_NOANSI=1
 					;;
+				"syslog")
+					OPT_SYSLOG=1
+					;;
 				*)
 					log "$(ansi red)⛔ Bad command line option '--$OPTARG'. ABORT$(ansi reset)"
 					log "$(ansi dim)Try $(ansi reset)$0 help$(ansi dim) to get help.$(ansi reset)"
@@ -962,6 +982,9 @@ while getopts ":c:l:oen-:" OPTCHAR; do
 			;;
 		"n")
 			OPT_NOANSI=1
+			;;
+		"s")
+			OPT_SYSLOG=1
 			;;
 		*)
 			log "$(ansi red)⛔ Bad command line option '-$OPTARG'. ABORT$(ansi reset)"

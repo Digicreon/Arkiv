@@ -195,8 +195,11 @@ or
 
 It will not disable output on the terminal. You can use the options `--no-stdout` and `--no-stderr` for that (see previous answer).
 
+### How to write log to syslog?
+Add the option `--syslog` (or `-s`) on the command line or in the Crontab command.
+
 ### How to get pure text (without ANSI commands) in Arkiv's log file?
-Add the option `--no-ansi` (or `-n`) on the command line or in the Crontab command. It will act on terminal output as well as log file (see `--log` option above).
+Add the option `--no-ansi` (or `-n`) on the command line or in the Crontab command. It will act on terminal output as well as log file (see `--log` option above) and syslog (see `--syslog` option above).
 
 ### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
 When you send a file to Amazon Glacier, you get back an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
@@ -273,5 +276,5 @@ But Arkiv is different in several ways:
 - The configuration process is simpler (you answer to questions).
 - Written in pure shell, it doesn't need a Perl interpreter.
 
-On the other hand, [Backup-Manager](https://github.com/sukria/Backup-Manager) is able to transfer to remote destinations by SCP or FTP.
+On the other hand, [Backup-Manager](https://github.com/sukria/Backup-Manager) is able to transfer to remote destinations by SCP or FTP, and to burn data on CD/DVD.
 
