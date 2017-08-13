@@ -31,7 +31,8 @@ If your data are backed up every hour (not just every day), it's possible to def
 **Backup**
 1. Each configured path is `tar`'ed and compressed, and the result is stored in the dedicated directory.
 2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in the same directory.
-3. Checksums are computed for all the generated files. These checksums are useful to verify that the files are not corrupted after being transfered over a network.
+3. *If encryption is configured*, the backup files are encrypted.
+4. Checksums are computed for all the generated files. These checksums are useful to verify that the files are not corrupted after being transfered over a network.
 
 **Archiving**
 1. *If Amazon Glacier is configured*, all the generated backup files (not the checksums file) are sent to Amazon Glacier. For each one of them, a JSON file is created with the response's content; these files are important, because they contain the *archiveId* needed to restore the file.
@@ -49,10 +50,11 @@ Prerequisites
 
 Several tools are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
 - A not-so-old [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell)) Shell interpreter located on `/bin/bash`.
-- [`tar`](https://en.wikipedia.org/wiki/Tar_(computing))
-- [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz)
-- [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum)
-- [`tput`](https://en.wikipedia.org/wiki/Tput)
+- [`tar`](https://en.wikipedia.org/wiki/Tar_(computing)) for files concatenation
+- [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz) for compression
+- [`openssl`](https://en.wikipedia.org/wiki/OpenSSL) for encryption (optional)
+- [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum) for checksums computation
+- [`tput`](https://en.wikipedia.org/wiki/Tput) for [ANSI text formatting](https://en.wikipedia.org/wiki/ANSI_escape_code) (can be deactivated)
 
 To install these tools on Ubuntu:
 ```shell
@@ -104,6 +106,7 @@ Configuration:
 Some questions will be asked about:
 - If you want to backup data every day or every hour.
 - The local machine's name (will be used as a subdirectory of the S3 bucket).
+- If you want to encrypt the generated backup files.
 - Where to store the compressed files resulting of the backup.
 - Which files must be backed up.
 - Everything about MySQL backup (which databases, host/login/password for the connection).
@@ -115,11 +118,6 @@ Finally, the program could add the Arkiv execution to the user's crontab.
 
 Frequently Asked Questions
 --------------------------
-
-### I choose simple mode configuration (one backup per day, every day). Why is there a directory called "00:00" in the backup directory of the day?
-This directory means that your Arkiv backup process is launched at midnight.
-
-You'd think that the backed up data would have be stored directly in the directory of the day, without a sub-directory for the hour (because there is only one backup per day). But if someday you'd want to change the configuration and do many backups per day, Arkiv would have trouble to manage purges.
 
 ### How much will I pay on Amazon S3/Glacier?
 You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws.com/index.html) to estimate the cost depending of your usage.
@@ -137,6 +135,17 @@ Here are some helpful links:
 - [Quick Benchmark: Gzip vs Bzip2 vs LZMA vs XZ vs LZ4 vs LZO](https://catchchallenger.first-world.info/wiki/Quick_Benchmark:_Gzip_vs_Bzip2_vs_LZMA_vs_XZ_vs_LZ4_vs_LZO)
 
 The default usage is `xz`, because a reduced file size means faster file transfers over a network.
+
+### How to create an encryption key?
+Use this command (adapt the path of the destination path):
+```shell
+# openssl rand 32 -out ~/.ssh/symkey.bin
+```
+
+### I choose simple mode configuration (one backup per day, every day). Why is there a directory called "00:00" in the backup directory of the day?
+This directory means that your Arkiv backup process is launched at midnight.
+
+You'd think that the backed up data would have be stored directly in the directory of the day, without a sub-directory for the hour (because there is only one backup per day). But if someday you'd want to change the configuration and do many backups per day, Arkiv would have trouble to manage purges.
 
 ### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
 You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
@@ -202,15 +211,46 @@ MAILTO=your.email@domain.com
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ```
 
+### Is it possible to use a public/private key infrastructure for the encryption functionnality?
+Encryption is done using an 256 bits AES algorithm, which is symmetrical. It is not possible to encrypt data with a public key to ensure that only the owner of the private key would be able to decrypt; it is not designed to encrypt large data. Instead, you have to encrypt the symmetrical key using the public key, and then send the encrypted key to the private key's owner.
+
+Here are the steps to do it (key files are usually located in `~/.ssh/`).
+
+Create the symmetrical key:
+```shell
+# openssl rand 32 -out symkey.bin
+```
+
+Convert the public and private keys to PEM format (usually people have keys in RSA format, using it with SSH):
+```shell
+# openssl rsa -in id_rsa -outform pem -out id_rsa.pem
+# openssl rsa -in id_rsa -pubout -outform pem -out id_rsa.pub.pem
+```
+
+Encrypt the symmetrical key with the public key:
+```shell
+# openssl rsautl -encrypt -inkey id_rsa.pub.pem -pubin -in symkey.bin -out symkey.bin.encrypt
+```
+
+To decrypt the encrypted symmetrical key using the private key:
+```shell
+# openssl rsautl -decrypt -inkey id_rsa.pem -in symkey.bin.encrypt -out symkey.bin 
+```
+
+To decrypt the data file:
+```shell
+# openssl enc -d -aes-256-cbc -in data.tgz.encrypt -out data.tgz -pass file:symkey.bin
+```
+
 ### I open the Arkiv log file with less, and it's full of strange characters
-Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.
+Unlike `more` and `tail`, `less` doesn't interpret ANSI commands (bold, color, etc.) by default.  
 To enable it, you have to use the option `-r` or `-R`.
 
 ### How to get pure text (without ANSI commands) in Arkiv's log file?
-Add the option `--noansi` (or just `-n`) on the command line or in the Crontab command.
+Add the option `--no-ansi` (or just `-n`) on the command line or in the Crontab command.
 
 ### Why is Arkiv compatible only with Bash interpreter?
-Because the `read` buitin command has a `-s` parameter for silent input (used for MySQL password input without showing it), unavailable on `dash` or `zsh` (for example).
+Because the `read` buitin command has a `-s` parameter for silent input (used for encryption passphrase and MySQL password input without showing them), unavailable on `dash` or `zsh` (for example).
 
 ### How to report bugs?
 [Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)

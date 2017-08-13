@@ -186,6 +186,9 @@ main_usage() {
 	echo "        $(ansi bold)-n, --no-ansi$(ansi reset)"
 	echo "                Don't use ANSI commands to ouput decorated text (colors, bold, reverse video)."
 	echo
+	echo "$(ansi bold)SEE ALSO$(ansi reset)"
+	echo "        More documentation available on GitHub: $(ansi under)https://github.com/Amaury/Arkiv$(ansi reset)"
+	echo
 	exit 0
 }
 
@@ -195,7 +198,19 @@ main_usage() {
 # @param	string	(optional) Visibility. Replace the MySQL password by an informative message if this parameter is set to "hide".
 _create_config() {
 	RESULT="CONF_LOCAL_HOSTNAME=\"$CONF_LOCAL_HOSTNAME\"
-CONF_Z_TYPE=\"$CONF_Z_TYPE\"
+CONF_Z_TYPE=\"$CONF_Z_TYPE\""
+	if [ "$CONF_ENCRYPT" = "key" ] || [ "$CONF_ENCRYPT" = "pass" ]; then
+		RESULT="$RESULT
+CONF_ENCRYPT=\"$CONF_ENCRYPT\""
+		if [ "$CONF_ENCRYPT" = "key" ]; then
+			RESULT="$RESULT
+CONF_ENCRYPT_KEY=\"$CONF_ENCRYPT_KEY\""
+		else
+			RESULT="$RESULT
+CONF_ENCRYPT_PASS=\"$CONF_ENCRYPT_PASS\""
+		fi
+	fi
+	RESULT="$RESULT
 CONF_BACKUP_PATH=\"$CONF_BACKUP_PATH\"
 CONF_SRC=\"$CONF_SRC\"
 CONF_MYSQL=\"$CONF_MYSQL\""
@@ -282,6 +297,41 @@ main_config() {
 		fi
 		CONF_Z_TYPE="xz"
 	fi
+	# encryption
+	read -p " $(ansi yellow)Do you want to encrypt data? [y/N]$(ansi reset) " ANSWER
+	if [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
+		# check openssl
+		if ! type openssl > /dev/null; then
+			echo " $(ansi red)⛔ The 'AWS-CLI' program is not installed. ABORT$(ansi reset)"
+			exit 1
+		fi
+		read " $(ansi yellow)Do you want to use an encryption key? (otherwise you'll have to give a passphrase) [Y/n]$(ansi reset) " ANSWER
+		if [ "$ANSWER" = "" ] || [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
+			CONF_ENCRYPT="key"
+			echo " $(ansi dim)Read the documentation to know how to generate an encryption key.$(ansi reset)"
+			read -p " $(ansi yellow)Path to your encryption key? [~/.ssh/symkey.bin]$(ansi reset) " ANSWER
+			CONF_ENCRYPT_KEY=$(trim "$ANSWER")
+			if [ "$CONF_ENCRYP_KEY" = "" ]; then
+				CONF_ENCRYPT_KEY="~/.ssh/id_rsa.pem"
+			fi
+			CONF_ENCRYPT_KEY="$(eval realpath "$CONF_ENCRYPT_KEY")"
+			if [ ! -r "$CONF_ENCRYPT_KEY" ]; then
+				echo " $(ansi red)⛔ Can't find file '$(ansi reset)$CONF_ENCRYPT_KEY$(ansi red)'. ABORT$(ansi reset)"
+				exit 1
+			fi
+		elif [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+			CONF_ENCRYPT="pass"
+			read -s -p " $(ansi yellow)Encryption passphrase ?$(ansi reset) " ANSWER
+			CONF_ENCRYPT_PASS=$(trim "$ANSWER")
+			if [ "$CONF_ENCRYPT_PASS" = "" ]; then
+				echo " $(ansi red)⛔ Empty passphrase. ABORT$(ansi reset)"
+				exit 1
+			fi
+		else
+			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
+			exit 1
+		fi
+	fi
 	# BACKUP
 	echo
 	echo "$(ansi rev blue) BACKUP                  $(ansi reset)"
@@ -295,7 +345,7 @@ main_config() {
 	for SRC in $CONF_SRC; do
 		if [ "${SRC:0:1}" != "/" ]; then
 			echo " $(ansi red)⛔ All paths must begin with a '$(ansi reset)/$(ansi red)'. ABORT$(ansi reset)"
-			exit
+			exit 1
 		fi
 	done
 	# MySQL
@@ -335,7 +385,7 @@ main_config() {
 		CONF_MYSQL_ALL_DATABASES="yes"
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			CONF_MYSQL_ALL_DATABASES="no"
-			read -p " $(ansi yellow)List of databases? (separated with spaces)$(ansi reset) " ANSWER
+			read -p " $(ansi yellow)List of databases? (separated with space characters)$(ansi reset) " ANSWER
 			CONF_MYSQL_DATABASES=$(trim "$ANSWER")
 			if [ "$CONF_MYSQL_DATABASES" = "" ]; then
 				echo " $(ansi red)⛔ No database to backup. ABORT$(ansi reset)"
@@ -693,9 +743,26 @@ main_exec() {
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
+	# encryption
+	FILESLIST_RESULT=""
+	if [ "$CONF_ENCRYPT" != "" ]; then
+		for FILE in $FILESLIST; do
+			if [ "$CONF_ENCRYPT" = "key" ]; then
+				openssl enc -aes-256-cbc -e -salt -in "$FILE" -out "$FILE.encrypt" -pass file:$CONF_ENCRYPT_KEY
+			else
+				CRYPT_PWD="$CONF_ENCRYPT_PASS" openssl enc -aes-256-cbc -e -salt -in "$FILE" -out "$FILE.encrypt" -pass env:CRYPT_PWD
+			fi
+			if [ $? -ne 0 ]; then
+				err "$(ansi yellow)⚠ Unable to encrypt file '$(ansi reset)$FILE$(ansi yellow)' using '$(ansi reset)$CONF_ENCRYPT$(ansi yellow)'.$(ansi reset)"
+				FILESLIST_RESULT="$FILESLIST_RESULT $FILE"
+			else
+				FILESLIST_RESULT="$FILESLIST_RESULT $FILE.encrypt"
+			fi
+		done
+	fi
 	# compute checksums
 	log "$(ansi bold)Compute checksums$(ansi reset)"
-	sha256sum $FILESLIST > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
+	sha256sum $FILESLIST_RESULT > "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
 	if [ $? -ne 0 ]; then
 		err "$(ansi yellow)⚠ Unable to create SHA256 checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
 	fi
@@ -712,7 +779,7 @@ main_exec() {
 		if [ $? -ne 0 ]; then
 			err "$(ansi yellow)⚠ Unable to send file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)' to Amazon Glacier.$(ansi reset)"
 		fi
-		for FILE in $FILESLIST; do
+		for FILE in $FILESLIST_RESULT; do
 			log "├ $(ansi dim)Archive file '$(ansi reset)$FILE$(ansi dim)'.$(ansi reset)"
 			aws glacier upload-archive --account-id - --vault-name $CONF_GLACIER_VAULT --body "$FILE" > "$FILE.glacier.json"
 			if [ $? -ne 0 ]; then
