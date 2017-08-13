@@ -269,6 +269,7 @@ Yes indeed. Both of them wants to help people to backup files and databases, and
 But Arkiv is different in several ways:
 - It can manage hourly backups.
 - It can transfer data on Amazon Glacier for long-term archiving.
+- It can manage complex purge policies.
 - The configuration process is simpler (you answer to questions).
 - Written in pure shell, it doesn't need a Perl interpreter.
 
