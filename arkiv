@@ -993,9 +993,8 @@ while getopts ":c:l:oen-:" OPTCHAR; do
 			;;
 	esac
 done
-
 # main execution
-case "EXEC_TYPE" in
+case "$EXEC_TYPE" in
 	"config")
 		main_config
 		;;
