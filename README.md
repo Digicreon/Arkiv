@@ -12,10 +12,32 @@ It is written in pure shell, so it can be used on any Unix/Linux machine.
 Arkiv was created by Amaury Bouchard <amaury@amaury.net>.
 
 
-How it works
-------------
+************************************************************************
 
-### General idea
+<center><big><strong>Table of contents</strong></big></center>
+
+```
+1. How it works
+   1.1 General Idea
+   1.2 Steb-by-step
+2. Installation
+   2.1 Prerequisites
+   2.2 Source installation
+   2.3 Configuration
+3. Frequently Asked Questions
+   3.1 Cost and license
+   3.2 Configuration
+   3.3 Output and log
+```
+
+
+************************************************************************
+
+<center><big><strong>1. How it works</strong></big></center>
+
+1.1 General idea
+----------------
+
 - Generate backup data from local files and databases.
 - Store data on the local drive for a few days/weeks, in order to be able to restore fresh data very quickly.
 - Store data on Amazon S3 for a few weeks/months, if you need to restore them easily.
@@ -23,7 +45,8 @@ How it works
 
 If your data are backed up every hour (not just every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be configured for Amazon S3 archives.
 
-### Step-by-step
+1.2 Step-by-step
+----------------
 **Starting**
 1. Arkiv is launched every day (or every hour) by Crontab.
 2. It creates a directory dedicated to the backups of the day (or the backups of the hour).
@@ -43,10 +66,14 @@ If your data are backed up every hour (not just every day), it's possible to def
 2. *If Amazon S3 is configured*, all backup files are removed from Amazon S3 after a configured delay. The checksums file and the Amazon Glacier JSON files are *not* removed, because they are needed to restore data from Amazon Glacier and check their integrity.
 
 
-Prerequisites
--------------
+************************************************************************
 
-### Basic
+<center><big><strong>2. Installation</strong></big></center>
+
+2.1 Prerequisites
+-----------------
+
+### 2.1.1 Basic
 Several tools are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
 - A not-so-old [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell)) Shell interpreter located on `/bin/bash` (mandatory)
 - [`tar`](https://en.wikipedia.org/wiki/Tar_(computing)) for files concatenation (mandatory)
@@ -60,7 +87,7 @@ To install these tools on Ubuntu:
 # apt-get install tar gzip bzip2 xz-utils openssl coreutils ncurses-bin
 ```
 
-### Encryption
+### 2.1.2 Encryption
 If you want to encrypt the generated backup files (stored locally as well as the ones archived on Amazon S3 and Amazon Glacier), you need to create a symmetric encryption key.
 
 Use this command to do it (you can adapt the destination path):
@@ -68,7 +95,7 @@ Use this command to do it (you can adapt the destination path):
 # openssl rand 32 -out ~/.ssh/symkey.bin
 ```
 
-### MySQL
+### 2.1.3 MySQL
 If you want to backup MySQL databases, you have to install the [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) tool.
 
 To install it on Ubuntu:
@@ -76,7 +103,7 @@ To install it on Ubuntu:
 # apt-get install mysql-client
 ```
 
-### Amazon Web Services
+### 2.1.4 Amazon Web Services
 If you want to archive the generated backup files on Amazon S3/Glacier, you have to do these things:
 - Create a dedicated bucket on [Amazon S3](https://aws.amazon.com/s3/).
 - If you want to archive on [Amazon Glacier](https://aws.amazon.com/glacier/), create a dedicated vault in the same datacenter.
@@ -94,15 +121,17 @@ Configure the program (you will be asked for the AWS user's access key and secre
 ```
 
 
-Arkiv Installation
-------------------
+2.2 Source Installation
+-----------------------
 
 Clone the GitHub repository:
 ```shell
 # git clone https://github.com/Amaury/Arkiv
 ```
 
-Configuration:
+2.3 Configuration
+-----------------
+
 ```shell
 # cd Arkiv
 # ./arkiv config
@@ -122,11 +151,24 @@ Some questions will be asked about:
 Finally, the program will offer you to add the Arkiv execution to the user's crontab.
 
 
-Frequently Asked Questions
---------------------------
+************************************************************************
+
+<center><big><strong>3. Frequently Asked Questions</strong></big></center>
+
+3.1 Cost and license
+--------------------
+
+### What is Arkiv's license?
+Arkiv is licensed under the terms of the [MIT License](https://en.wikipedia.org/wiki/MIT_License), which is a permissive open-source free software license.
+
+More in the file `COPYING`.
 
 ### How much will I pay on Amazon S3/Glacier?
 You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws.com/index.html) to estimate the cost depending of your usage.
+
+
+3.2 Configuration
+-----------------
 
 ### How to choose the compression type?
 You can use one of the three common compression tools (`gzip`, `bzip2`, `xz`).
@@ -147,18 +189,6 @@ This directory means that your Arkiv backup process is launched at midnight.
 
 You may think that the backed up data should have been stored directly in the directory of the day, without a sub-directory for the hour (because there is only one backup per day). But if someday you'd want to change the configuration and do many backups per day, Arkiv would have trouble to manage purges.
 
-### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
-You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
-```shell
-# crontab -e
-```
-
-### How to execute pre- and/or post-backup scripts?
-See the previous answer. You just have to add these scripts before and/or after the Arkiv program in the Cron table.
-
-### Is it possible to backup more often than every hours?
-No, it's not possible.
-
 ### How to execute Arkiv with different configurations?
 You can add the path to the configuration file as a parameter of the program on the command line.
 
@@ -177,52 +207,6 @@ or
 ```
 
 You can modify the Crontab to add the path too.
-
-### Is it possible to execute Arkiv without any output on STDOUT and/or STDERR?
-Yes, you just have to add some options on the command line:
-- `--no-stdout` (or `-o`) to avoid output on STDOUT
-- `--no-stderr` (or `-e`) to avoid output on STDERR
-
-You can use these options separately or together.
-
-### How to write the execution log into a file?
-You can use a dedicated parameter:
-```shell
-# ./arkiv exec -l /path/to/log/file
-or
-# ./arkiv exec --log=/path/to/log/file
-```
-
-It will not disable output on the terminal. You can use the options `--no-stdout` and `--no-stderr` for that (see previous answer).
-
-### How to write log to syslog?
-Add the option `--syslog` (or `-s`) on the command line or in the Crontab command.
-
-### How to get pure text (without ANSI commands) in Arkiv's log file?
-Add the option `--no-ansi` (or `-n`) on the command line or in the Crontab command. It will act on terminal output as well as log file (see `--log` option above) and syslog (see `--syslog` option above).
-
-### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
-When you send a file to Amazon Glacier, you get back an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
-If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexible to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
-
-### I want to have colors in the Arkiv log file when it's launched from Crontab, as well as when it's launch from the command line
-The problem comes from the Crontab environment, which is very minimal.  
-You have to set the `TERM` environment variable from the Crontab. It is also a good idea to define the `MAILTO` and `PATH` variables.
-
-Edit the Crontab:
-```shell
-# crontab -e
-```
-
-And add these three lines at its beginning:
-```shell
-TERM=xterm
-MAILTO=your.email@domain.com
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-```
-
-### How to receive an email alert when a problem occurs?
-Add a `MAILTO` environment variable at the beginning of your Crontab. See the previous answer.
 
 ### Is it possible to use a public/private key infrastructure for the encryption functionnality?
 It is not possible to encrypt data with a public key; OpenSSL's [PKI](https://en.wikipedia.org/wiki/Public_key_infrastructure) isn't designed to encrypt large data. Encryption is done using an 256 bits AES algorithm, which is symmetrical.  
@@ -256,15 +240,85 @@ To decrypt the data file:
 # openssl enc -d -aes-256-cbc -in data.tgz.encrypt -out data.tgz -pass file:symkey.bin
 ```
 
+### Why is it not possible to archive on Amazon Glacier without archiving on Amazon S3?
+When you send a file to Amazon Glacier, you get back an *archiveId* (file's unique identifier). Arkiv take this information and write it down in a file; then this file is copied to Amazon S3.
+If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexible to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
+
+
+3.3 Output and log
+------------------
+
+### Is it possible to execute Arkiv without any output on STDOUT and/or STDERR?
+Yes, you just have to add some options on the command line:
+- `--no-stdout` (or `-o`) to avoid output on STDOUT
+- `--no-stderr` (or `-e`) to avoid output on STDERR
+
+You can use these options separately or together.
+
+### How to write the execution log into a file?
+You can use a dedicated parameter:
+```shell
+# ./arkiv exec -l /path/to/log/file
+or
+# ./arkiv exec --log=/path/to/log/file
+```
+
+It will not disable output on the terminal. You can use the options `--no-stdout` and `--no-stderr` for that (see previous answer).
+
+### How to write log to syslog?
+Add the option `--syslog` (or `-s`) on the command line or in the Crontab command.
+
+### How to get pure text (without ANSI commands) in Arkiv's log file?
+Add the option `--no-ansi` (or `-n`) on the command line or in the Crontab command. It will act on terminal output as well as log file (see `--log` option above) and syslog (see `--syslog` option above).
+
 ### I open the Arkiv log file with less, and it's full of strange characters
 Unlike `more` and `tail`, `less` doesn't interpret ANSI text formatting commands (bold, color, etc.) by default.  
 To enable it, you have to use the option `-r` or `-R`.
 
-### Why is Arkiv compatible only with Bash interpreter?
-Because the `read` buitin command has a `-s` parameter for silent input (used for encryption passphrase and MySQL password input without showing them), unavailable on `dash` or `zsh` (for example).
+
+Crontab
+-------
+
+### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
+You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
+```shell
+# crontab -e
+```
+
+### How to execute pre- and/or post-backup scripts?
+See the previous answer. You just have to add these scripts before and/or after the Arkiv program in the Cron table.
+
+### Is it possible to backup more often than every hours?
+No, it's not possible.
+
+### I want to have colors in the Arkiv log file when it's launched from Crontab, as well as when it's launch from the command line
+The problem comes from the Crontab environment, which is very minimal.  
+You have to set the `TERM` environment variable from the Crontab. It is also a good idea to define the `MAILTO` and `PATH` variables.
+
+Edit the Crontab:
+```shell
+# crontab -e
+```
+
+And add these three lines at its beginning:
+```shell
+TERM=xterm
+MAILTO=your.email@domain.com
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
+### How to receive an email alert when a problem occurs?
+Add a `MAILTO` environment variable at the beginning of your Crontab. See the previous answer.
+
+
+Miscellaneous
+-------------
 
 ### How to report bugs?
 [Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)
+
+### Why is Arkiv compatible only with Bash interpreter?
+Because the `read` buitin command has a `-s` parameter for silent input (used for encryption passphrase and MySQL password input without showing them), unavailable on `dash` or `zsh` (for example).
 
 ### Arkiv looks like Backup-Manager
 Yes indeed. Both of them wants to help people to backup files and databases, and archive data in a secure place.
