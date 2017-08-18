@@ -732,7 +732,7 @@ main_exec() {
 			# dump MySQL database
 			log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$DB_NAME"
-			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
+			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables -routines -events $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 			if [ $? -ne 0 ]; then
 				err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
 				continue
