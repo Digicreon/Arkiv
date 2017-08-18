@@ -36,8 +36,7 @@ Table of contents
 
 ************************************************************************
 
-1. How it works
----------------
+## 1. How it works
 
 ### 1.1 General idea
 
@@ -71,8 +70,7 @@ If your data are backed up every hour (not just every day), it's possible to def
 
 ************************************************************************
 
-2. Installation
----------------
+## 2. Installation
 
 ### 2.1 Prerequisites
 
@@ -155,8 +153,7 @@ Finally, the program will offer you to add the Arkiv execution to the user's cro
 
 ************************************************************************
 
-3. Frequently Asked Questions
------------------------------
+## 3. Frequently Asked Questions
 
 ### 3.1 Cost and license
 
