@@ -442,7 +442,7 @@ main_config() {
 			ANSWER=$(trim "$ANSWER")
 			if [ "$ANSWER" = "i" ] || [ "$ANSWER" = "I" ]; then
 				CONF_XTRABACKUP_TYPE="incremental"
-				MSG="Path to the LSN file that will be read?"
+				MSG="Path to the LSN file that will be read and updated?"
 			fi
 			# path to the LSN file
 			read -p " $(ansi yellow)$MSG [$CONF_XTRABACKUP_LSN_FILE]$(ansi reset) " ANSWER

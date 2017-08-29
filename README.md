@@ -54,7 +54,7 @@ If your data are backed up every hour (not just every day), it's possible to def
 
 **Backup**
 1. Each configured path is `tar`'ed and compressed, and the result is stored in the dedicated directory.
-2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in the same directory.
+2. *If MySQL backups are configured*, the needed databases are dumped and compressed, in a sub-directory.
 3. *If encryption is configured*, the backup files are encrypted.
 4. Checksums are computed for all the generated files. These checksums are useful to verify that the files are not corrupted after being transfered over a network.
 
@@ -296,6 +296,11 @@ If you choose binary backups (using `xtrabackup`), Arkiv can handle:
 
 #### Are binary backups prepared for restore?
 No. Binary backups are done using `xtrabackup --backup`. The `xtrabackup --prepare` step is not done to save time and space. You will have to do it when you want to restore a database.
+
+#### How to define a full binary backup once per day and an incremental backup every other hours?
+You will have to create two different configuration files and add Arkiv in Crontab twice: once for the full backup (everyday at midnight for example), and once for the incremental backups (every hours except midnight).
+
+You need both executions to use the same LSN file. It will be written by the full backup, and read and updated by each incremental backups.
 
 
 ### 3.5 Crontab
