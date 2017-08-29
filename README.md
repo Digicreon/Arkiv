@@ -9,7 +9,7 @@ Backup files are removed (locally and from Amazon S3) after defined delays.
 Arkiv could backup your data on a **daily** or an **hourly** basis (you can choose which day and/or which hours it will be launched).  
 It is written in pure shell, so it can be used on any Unix/Linux machine.
 
-Arkiv was created by Amaury Bouchard <amaury@amaury.net>.
+Arkiv was created by [Amaury Bouchard](http://amaury.net) and is [open-source software](#what-is-arkivs-license).
 
 
 ************************************************************************
@@ -44,7 +44,15 @@ Table of contents
 - Store data on Amazon S3 for a few weeks/months, if you need to restore them easily.
 - Store data on Amazon Glacier for ever. It's an incredibly cheap storage that should be used instead of Amazon S3 for long-term conservancy.
 
-If your data are backed up every hour (not just every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3. For example, it's possible to remove half the backups after two days, and keep only 2 backups per day after 2 weeks, and keep 1 backup per day after 3 weeks, and remove all files after 2 months. The same could be configured for Amazon S3 archives.
+Data are deleted from the local drive and Amazon S3 when the configured delays are reached.   
+If your data are backed up multiple time per day (not just every day), it's possible to define a fine-grained purge of the files stored on the local drive and on Amazon S3.   
+For example, it's possible to:
+- remove half the backups after two days
+- keep only 2 backups per day after 2 weeks
+- keep 1 backup per day after 3 weeks
+- remove all files after 2 months
+
+The same kind of configuration could be defined for Amazon S3 archives.
 
 ### 1.2 Step-by-step
 
@@ -80,7 +88,7 @@ Several tools are needed by Arkiv to work correctly. They are usually installed 
 - [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz) for compression (at least one)
 - [`openssl`](https://en.wikipedia.org/wiki/OpenSSL) for encryption (optional)
 - [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum) for checksums computation (mandatory)
-- [`tput`](https://en.wikipedia.org/wiki/Tput) for [ANSI text formatting](https://en.wikipedia.org/wiki/ANSI_escape_code) (can be deactivated)
+- [`tput`](https://en.wikipedia.org/wiki/Tput) for [ANSI text formatting](https://en.wikipedia.org/wiki/ANSI_escape_code) (optional: can be manually deactivated; automatically deactivated if not installed)
 
 To install these tools on Ubuntu:
 ```shell
@@ -96,7 +104,7 @@ Use this command to do it (you can adapt the destination path):
 ```
 
 #### 2.1.3 MySQL
-If you want to backup MySQL databases, you have to install [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) or [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).
+If you want to backup MySQL databases, you have to install [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) or [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).i
 
 To install `mysqldump` on Ubuntu:
 ```shell
@@ -150,7 +158,7 @@ Some questions will be asked about:
 - The used compression type.
 - If you want to encrypt the generated backup files.
 - Which files must be backed up.
-- Everything about MySQL backup (which databases, host/login/password for the connection).
+- Everything about MySQL backup (SQL or binary backup, which databases, host/login/password for the connection).
 - Where to store the compressed files resulting of the backup.
 - Where to archive data on Amazon S3 and Amazon Glacier (if you want to).
 - When to purge files (locally and on Amazon S3).
