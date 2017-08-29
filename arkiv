@@ -70,6 +70,9 @@ ansi() {
 	if [ "$TERM" = "" ] || [ "$OPT_NOANSI" = "1" ]; then
 		return
 	fi
+	if ! type tput > /dev/null; then
+		return
+	fi
 	case "$1" in
 		"reset")	tput sgr0
 		;;
