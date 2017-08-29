@@ -445,7 +445,7 @@ main_config() {
 				MSG="Path to the LSN file that will be read and updated?"
 			fi
 			# path to the LSN file
-			read -p " $(ansi yellow)$MSG [$CONF_XTRABACKUP_LSN_FILE]$(ansi reset) " ANSWER
+			read -p " $(ansi yellow)$MSG (needed for subsequent incremental backups) [$CONF_XTRABACKUP_LSN_FILE]$(ansi reset) " ANSWER
 			ANSWER=$(trim "$ANSWER")
 			if [ "$ANSWER" != "" ]; then
 				CONF_XTRABACKUP_LSN_FILE="$ANSWER"
@@ -822,6 +822,16 @@ main_exec() {
 			exit 1
 		fi
 		chmod 700 "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
+		# read LSN file if needed
+		if [ "$CONF_XTRABACKUP_TYPE" = "incremental" ]; then
+			log "├ $(ansi dim)Read LSN file$(ansi reset)"
+			LSN=$(cat $CONF_XTRABACKUP_LSN_FILE | head -1)
+			LSN=$(trim $LSN)
+			if [ "$LSN" = "" ]; then
+				err "$(ansi yellow)⚠ Empty LSN file '$(ansi reset)$CONF_XTRABACKUP_LSN_FILE$(ansi yellow)'. Forcing a full binary backup.$(ansi reset)"
+				CONF_XTRABACKUP_TYPE="full"
+			fi
+		fi
 		# backup operation
 		if [ "$CONF_XTRABACKUP_TYPE" = "full" ]; then
 			# full backup
@@ -834,15 +844,23 @@ main_exec() {
 		elif [ "$CONF_XTRABACKUP_TYPE" = "incremental" ]; then
 			# incremental backup
 			log "├ $(ansi dim)Incremental binary backup$(ansi reset)"
+			MYSQL_PWD="$CONF_MYSQL_PWD" xtrabackup --incremental --incremental-lsn=$LSN --target-dir="$CONF_BACKUP_PATH/$CURRENT_PATH/database_data" -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST > /dev/null 2> "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data/xtrabackup.log"
+			if [ $? -ne 0 ]; then
+				err "$(ansi red)⛔ Unable to save database. See log '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data/xtrabackup.log$(ansi red)'. ABORT$(ansi reset)"
+				exit 1
+			fi
 		fi
+		# write LSN File
+		log "├ $(ansi dim)Write LSN file$(ansi reset)"
+		grep last_lsn "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data/xtrabackup_checkpoints" | cut -d"=" -f2 > $CONF_XTRABACKUP_LSN_FILE
 		# tar directory
 		log "├ $(ansi dim)Tar'ing generated files$(ansi reset)"
 		tar cf "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar" "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
 		if [ $? -ne 0 ]; then
-			err "$(ansi yellow)⛔ Unable to tar directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi yellow)' to '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar$(ansi yellow)'.$(ansi reset)"
+			err "$(ansi red)⛔ Unable to tar directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi red)' to '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar$(ansi red)'.$(ansi reset)"
 			exit 1
 		fi
-		# compress file
+		# compress files
 		log "├ $(ansi dim)Compress file$(ansi reset)"
 		if [ "$CONF_Z_TYPE" = "gzip" ]; then
 			FILE_EXT="tar.gz"

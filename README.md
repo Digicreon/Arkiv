@@ -199,16 +199,16 @@ You can add the path to the configuration file as a parameter of the program on 
 
 To generate the configuration file:
 ```shell
-# ./arkiv config -c /path/to/config/file
-or
 # ./arkiv config --config=/path/to/config/file
+or
+# ./arkiv config -c /path/to/config/file
 ```
 
 To launch Arkiv:
 ```shell
-# ./arkiv exec -c /path/to/config/file
-or
 # ./arkiv exec --config=/path/to/config/file
+or
+# ./arkiv exec -c /path/to/config/file
 ```
 
 You can modify the Crontab to add the path too.
@@ -262,9 +262,9 @@ You can use these options separately or together.
 #### How to write the execution log into a file?
 You can use a dedicated parameter:
 ```shell
-# ./arkiv exec -l /path/to/log/file
-or
 # ./arkiv exec --log=/path/to/log/file
+or
+# ./arkiv exec -l /path/to/log/file
 ```
 
 It will not disable output on the terminal. You can use the options `--no-stdout` and `--no-stderr` for that (see previous answer).
@@ -287,20 +287,101 @@ Arkiv could generate two kinds of database backups:
 - SQL backups created using [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html).
 - Binary backups using [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).
 
+There is two types of binary backups:
+- Full backups; the server's files are entirely copied.
+- Incremental backups; only the data modified since the last backup (full or incremental) are copied.
+
+You must do a full backup before performing any incremental backup.
+
 #### Which databases and table engines could be backed up?
-If you choose SQL backups (using `mysqldump`), Arkiv can manage MySQL, MariaDB and Percona Server.
+If you choose SQL backups (using `mysqldump`), Arkiv can manage any table engine supported by [MySQL](https://www.mysql.com/), [MariaDB](https://mariadb.org/) and [Percona Server](https://www.percona.com/software/mysql-database/percona-server).
 
 If you choose binary backups (using `xtrabackup`), Arkiv can handle:
 - MySQL (5.1 and above) or MariaDB, with InnoDB, MyISAM and XtraDB tables.
 - Percona Server with XtraDB tables.
 
+Note that MyISAM can't be incrementally backed up. There are copied entirely each time an incremental backup is performed.
+
 #### Are binary backups prepared for restore?
-No. Binary backups are done using `xtrabackup --backup`. The `xtrabackup --prepare` step is not done to save time and space. You will have to do it when you want to restore a database.
+No. Binary backups are done using `xtrabackup --backup`. The `xtrabackup --prepare` step is not done to save time and space. You will have to do it when you want to restore a database (see below).
 
 #### How to define a full binary backup once per day and an incremental backup every other hours?
 You will have to create two different configuration files and add Arkiv in Crontab twice: once for the full backup (everyday at midnight for example), and once for the incremental backups (every hours except midnight).
 
 You need both executions to use the same LSN file. It will be written by the full backup, and read and updated by each incremental backups.
+
+The same process could be used with any other frequency (for example: full backups once a week and incremental backups every other days).
+
+#### How to restore a SQL backup?
+Arkiv generates one SQL file per database. You have to extract the wanted file and process it in your database server:
+```shell
+# unxz /path/to/database_sql/database.sql.xz
+# mysql -u username -p < /path/to/database_sql/database.sql
+```
+
+#### How to restore a full binary backup without subsequent incremental backups?
+To restore the database, you first need to extract the data:
+```shell
+# tar xJf /path/to/database_data.tar.xz
+or
+# tar xjf /path/to/database_data.tar.bz2
+or
+# tar xzf /path/to/database_data.tar.gz
+```
+
+Then you must prepare the backup:
+```shell
+# xtrabackup --prepare --target-dir=/path/to/database_data
+```
+
+Please note that the MySQL server must be shut down, and the 'datadir' directory (usually `/var/lib/mysql`) must be empty. On Ubuntu:
+```shell
+# service mysql stop
+# rm -rf /var/lib/mysql/*
+```
+
+Then you can restore the data:
+```shell
+# xtrabackup --copy-back --target-dir=/path/to/database_data
+```
+
+Files' ownership must be given back to the MySQL user (usually `mysql`):
+```shell
+# chown -R mysql:mysql /var/lib/mysql
+```
+
+Finally you can restart the MySQL daemon:
+```shell
+# service mysql start
+```
+
+#### How to restore a full + incrementals binary backup?
+Let's say you have a full backup (located in `/full/database_data`) and three incremental backups (located in `/inc1/database_data`, `/inc2/database_data` and `/inc3/database_data`), and you have already extracted the backed up files (see previous answer).
+
+First, you must prepare the full backup with the additional `--apply-log-only` option:
+```shell
+# xtrabackup --prepare --apply-log-only --target-dir=/full/database_data
+```
+
+And then you prepare using all incremental backups in their creation order, **except the last one**:
+```shell
+# xtrabackup --prepare --apply-log-only --target-dir=/full/database_data --incremental-dir=/inc1/database_data
+# xtrabackup --prepare --apply-log-only --target-dir=/full/database_data --incremental-dir=/inc2/database_data
+```
+
+Data preparation of the last incremental backup is done without the `--apply-log-only` option:
+```shell
+# xtrabackup --prepare --target-dir=/full/database_data --incremental-dir=/inc3/database_data
+```
+
+Once every backups have been merged, the process is the same than for a full backup:
+```shell
+# service mysql stop
+# rm -rf /var/lib/mysql/*
+# xtrabackup --copy-back --target-dir=/path/to/database_data
+# chown -R mysql:mysql /var/lib/mysql
+# service mysql start
+```
 
 
 ### 3.5 Crontab
