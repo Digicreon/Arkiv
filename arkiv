@@ -232,7 +232,7 @@ CONF_ENCRYPT_PASS=\"$CONF_ENCRYPT_PASS\""
 CONF_BACKUP_PATH=\"$CONF_BACKUP_PATH\"
 CONF_SRC=\"$CONF_SRC\"
 CONF_MYSQL=\"$CONF_MYSQL\""
-	if [ "$CONF_MYSQL" = "yes" ]; then
+	if [ "$CONF_MYSQL" != "no" ]; then
 		RESULT="$RESULT
 CONF_MYSQL_HOST=\"$CONF_MYSQL_HOST\"
 CONF_MYSQL_USER=\"$CONF_MYSQL_USER\""
@@ -243,11 +243,18 @@ CONF_MYSQL_PWD=___HIDDEN_PASSWORD___"
 			RESULT="$RESULT
 CONF_MYSQL_PWD=\"$CONF_MYSQL_PWD\""
 		fi
-		RESULT="$RESULT
-CONF_MYSQL_ALL_DATABASES=\"$CONF_MYSQL_ALL_DATABASES\""
-		if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
+		if [ "$CONF_MYSQL" = "mysqldump" ]; then
 			RESULT="$RESULT
+CONF_MYSQL_ALL_DATABASES=\"$CONF_MYSQL_ALL_DATABASES\""
+			if [ "$CONF_MYSQL_ALL_DATABASES" = "no" ]; then
+				RESULT="$RESULT
 CONF_MYSQL_DATABASES=\"$CONF_MYSQL_DATABASES\""
+			fi
+		fi
+		if [ "$CONF_MYSQL" = "xtrabackup" ]; then
+			RESULT="$RESULT
+CONF_XTRABACKUP_TYPE=\"$CONF_XTRABACKUP_TYPE\"
+CONF_XTRABACKUP_LSN_FILE=\"$CONF_XTRABACKUP_LSN_FILE\""
 		fi
 	fi
 	RESULT="$RESULT
@@ -371,10 +378,22 @@ main_config() {
 	read -p " $(ansi yellow)Backup MySQL databases? [Y/n]$(ansi reset) " ANSWER
 	ANSWER=$(trim "$ANSWER")
 	if [ "$ANSWER" = "" ] || [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
-		CONF_MYSQL="yes"
-		# check mysqldump
-		if ! type mysqldump > /dev/null; then
-			echo " $(ansi red)⛔ The 'mysqldump' program is not installed. ABORT$(ansi reset)"
+		read -p " $(ansi yellow)SQL dumps or binary backup? [S/b]$(ansi reset) " ANSWER
+		ANSWER=$(trim "$ANSWER")
+		if [ "$ANSWER" = "" ] || [ "$ANSWER" = "s" ] || [ "$ANSWER" = "S" ]; then
+			if ! type mysqldump > /dev/null; then
+				echo " $(ansi red)⛔ The '$(ansi reset)mysqldump$(ansi red)' program is not installed. ABORT$(ansi reset)"
+				exit 1
+			fi
+			CONF_MYSQL="mysqldump"
+		elif [ "$ANSWER" = "b" ] || [ "$ANSWER" = "B" ]; then
+			if ! type xtrabackup > /dev/null; then
+				echo " $(ansi red)⛔ The '$(ansi reset)xtrabackup$(ansi red)' program is not installed. ABORT$(ansi reset)"
+				exit 1
+			fi
+			CONF_MYSQL="xtrabackup"
+		else
+			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
 			exit 1
 		fi
 		# MySQL hostname
@@ -397,17 +416,39 @@ main_config() {
 			exit 1
 		fi
 		echo
-		# MySQL databases
-		read -p " $(ansi yellow)Do you want to backup all databases readable by this user? (otherwise you will have to give a list of database names) [Y/n]$(ansi reset) " ANSWER
-		ANSWER=$(trim "$ANSWER")
-		CONF_MYSQL_ALL_DATABASES="yes"
-		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
-			CONF_MYSQL_ALL_DATABASES="no"
-			read -p " $(ansi yellow)List of databases? (separated with space characters)$(ansi reset) " ANSWER
-			CONF_MYSQL_DATABASES=$(trim "$ANSWER")
-			if [ "$CONF_MYSQL_DATABASES" = "" ]; then
-				echo " $(ansi red)⛔ No database to backup. ABORT$(ansi reset)"
-				exit 1
+		# mysqldump specific questions
+		if [ "$CONF_MYSQL" = "mysqldump" ]; then
+			# MySQL databases
+			read -p " $(ansi yellow)Do you want to backup all databases readable by this user? (otherwise you will have to give a list of database names) [Y/n]$(ansi reset) " ANSWER
+			ANSWER=$(trim "$ANSWER")
+			CONF_MYSQL_ALL_DATABASES="yes"
+			if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
+				CONF_MYSQL_ALL_DATABASES="no"
+				read -p " $(ansi yellow)List of databases? (separated with space characters)$(ansi reset) " ANSWER
+				CONF_MYSQL_DATABASES=$(trim "$ANSWER")
+				if [ "$CONF_MYSQL_DATABASES" = "" ]; then
+					echo " $(ansi red)⛔ No database to backup. ABORT$(ansi reset)"
+					exit 1
+				fi
+			fi
+		fi
+		# xtrabackup specific questions
+		if [ "$CONF_MYSQL" = "xtrabackup" ]; then
+			CONF_XTRABACKUP_TYPE="full"
+			CONF_XTRABACKUP_LSN_FILE="$CONFIG_FILE_PATH.lsn"
+			MSG="Path to the LSN file that will be written?"
+			# full or incremental
+			read -p " $(ansi yellow)Full or incremental backup? [F/i]$(ansi reset) " ANSWER
+			ANSWER=$(trim "$ANSWER")
+			if [ "$ANSWER" = "i" ] || [ "$ANSWER" = "I" ]; then
+				CONF_XTRABACKUP_TYPE="incremental"
+				MSG="Path to the LSN file that will be read?"
+			fi
+			# path to the LSN file
+			read -p " $(ansi yellow)$MSG [$CONF_XTRABACKUP_LSN_FILE]$(ansi reset) " ANSWER
+			ANSWER=$(trim "$ANSWER")
+			if [ "$ANSWER" != "" ]; then
+				CONF_XTRABACKUP_LSN_FILE="$ANSWER"
 			fi
 		fi
 	elif [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
@@ -631,7 +672,7 @@ main_config() {
 		echo
 		echo " $(ansi under)HERE IS THE CRONTAB THAT IS ABOUT TO BE ADDED$(ansi reset)"
 		echo "$(ansi dim)# ARKIV backup$(ansi reset)"
-		echo "$(ansi dim)0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --log=$CRON_LOG_PATH --no-stdout$(ansi reset)"
+		echo "$(ansi dim)0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --config=$CONFIG_FILE_PATH --log=$CRON_LOG_PATH --no-stdout$(ansi reset)"
 		echo
 		# add to crontab
 		read -p " $(ansi yellow)Is it OK for you? [Y/n]$(ansi reset) " ANSWER
@@ -639,7 +680,7 @@ main_config() {
 		if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "N" ]; then
 			echo " $(ansi yellow)⚠ No Crontab installation.$(ansi reset)"
 		elif [ "$ANSWER" = "" ] || [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
-			(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --log=$CRON_LOG_PATH --no-stdout") | crontab -
+			(crontab -l 2>/dev/null | grep -v -e "ARKIV" -e "arkiv"; echo; echo "# ARKIV backup"; echo "0 $CRON_HOURS $CRON_DAYS * * $CRON_EXEC_PATH/arkiv exec --config=$CONFIG_FILE_PATH --log=$CRON_LOG_PATH --no-stdout") | crontab -
 			echo " $(ansi green)✓ Arkiv was Successfully added to the Crontab$(ansi reset)"
 		else
 			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
@@ -676,10 +717,6 @@ main_exec() {
 		exit 1
 	fi
 	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_PATH"
-	if [ $? -ne 0 ]; then
-		err "$(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
-		exit 1
-	fi
 	log "└ $(ansi green)Done$(ansi reset)"
 	# list of created files
 	FILESLIST=""
@@ -693,32 +730,35 @@ main_exec() {
 			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$FILENAME"
 			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
 			SRC="$(echo "$SRC" | sed 's/^\///')"
+			# tar path
+			tar cf "$FILEPATH.tar" -C / "$SRC"
+			if [ $? -ne 0 ]; then
+				err "$(ansi yellow)⛔ Unable to tar path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.tar$(ansi yellow)'.$(ansi reset)"
+				exit 1
+			fi
+			# compress file
 			if [ "$CONF_Z_TYPE" = "gzip" ]; then
 				FILE_EXT="tar.gz"
-				tar czf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
 				FILE_EXT="tar.bz2"
-				tar cjf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			else
 				FILE_EXT="tar.xz"
-				tar cJf "$FILEPATH.$FILE_EXT" -C / "$SRC"
 			fi
+			echo "$FILEPATH.tar" | xargs $CONF_Z_TYPE
 			if [ $? -ne 0 ]; then
-				err "$(ansi yellow)⚠ Unable to compress path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
+				err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.tar$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
+				FILE_EXT="tar"
 			fi
 			# add to list
 			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
 			# change file rights
 			chmod 600 "$FILEPATH.$FILE_EXT"
-			if [ $? -ne 0 ]; then
-				err "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
-			fi
 		done
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
-	# backup mysql
-	if [ "$CONF_MYSQL" = "yes" ]; then
-		log "$(ansi bold)Backup databases$(ansi reset)"
+	# database backup using mysqldump
+	if [ "$CONF_MYSQL" = "mysqldump" ]; then
+		log "$(ansi bold)SQL database backup$(ansi reset)"
 		# fetch the list of databases if needed
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
 			log "├ $(ansi dim)Fetch the list of databases$(ansi reset)"
@@ -727,38 +767,105 @@ main_exec() {
 				err "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
 			fi
 		fi
-		# loop on databases
-		for DB_NAME in "$CONF_MYSQL_DATABASES"; do
-			# dump MySQL database
-			log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
-			FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/$DB_NAME"
-			MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables -routines -events $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
+		CONF_MYSQL_DATABASES=$(trim "$CONF_MYSQL_DATABASES")
+		if [ "$CONF_MYSQL_DATABASES" = "" ]; then
+			err "$(ansi yellow)⚠ No one database to backup.$(ansi reset)"
+		else
+			# create destination directory
+			log "├ $(ansi dim)Create destination directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql$(ansi bold)'$(ansi reset)"
+			mkdir "$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql"
 			if [ $? -ne 0 ]; then
-				err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
-				continue
+				err "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql$(ansi red)'. ABORT$(ansi reset)"
+				exit 1
 			fi
-			# compress the dumped file
-			log "├ $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME$(ansi bold)'.$(ansi reset)"
-			if [ "$CONF_Z_TYPE" = "gzip" ]; then
-				FILE_EXT="sql.gz"
-			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
-				FILE_EXT="sql.bz2"
-			else
-				FILE_EXT="sql.xz"
-			fi
-			echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE
+			chmod 700 "$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql"
+			# loop on databases
+			for DB_NAME in "$CONF_MYSQL_DATABASES"; do
+				# dump MySQL database
+				log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
+				FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql/$DB_NAME"
+				MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables -routines -events $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
+				if [ $? -ne 0 ]; then
+					err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
+					continue
+				fi
+				# compress the dumped file
+				log "├ $(ansi dim)Compress backup file for '$(ansi reset)$DB_NAME$(ansi bold)'.$(ansi reset)"
+				if [ "$CONF_Z_TYPE" = "gzip" ]; then
+					FILE_EXT="sql.gz"
+				elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
+					FILE_EXT="sql.bz2"
+				else
+					FILE_EXT="sql.xz"
+				fi
+				echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE
+				if [ $? -ne 0 ]; then
+					err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
+					FILE_EXT="sql"
+				fi
+				# add to list
+				FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
+				# change file rights
+				chmod 600 "$FILEPATH.$FILE_EXT"
+			done
+			log "└ $(ansi green)Done$(ansi reset)"
+		fi
+	fi
+	# database backup using xtrabackup
+	if [ "$CONF_MYSQL" = "xtrabackup" ]; then
+		log "$(ansi bold)Binary database backup$(ansi reset)"
+		# create destination directory
+		log "├ $(ansi dim)Create destination directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi bold)'$(ansi reset)"
+		mkdir "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
+		if [ $? -ne 0 ]; then
+			err "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi red)'. ABORT$(ansi reset)"
+			exit 1
+		fi
+		chmod 700 "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
+		# backup operation
+		if [ "$CONF_XTRABACKUP_TYPE" = "full" ]; then
+			# full backup
+			log "├ $(ansi dim)Full binary backup$(ansi reset)"
+			MYSQL_PWD="$CONF_MYSQL_PWD" xtrabackup --backup --target-dir="$CONF_BACKUP_PATH/$CURRENT_PATH/database_data" -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST > /dev/null 2> "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data/xtrabackup.log"
 			if [ $? -ne 0 ]; then
-				err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
-				FILE_EXT="sql"
+				err "$(ansi red)⛔ Unable to save database. See log '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data/xtrabackup.log$(ansi red)'. ABORT$(ansi reset)"
+				exit 1
 			fi
-			# add to list
-			FILESLIST="$FILESLIST $FILEPATH.$FILE_EXT"
-			# change file rights
-			chmod 600 "$FILEPATH.$FILE_EXT"
-			if [ $? -ne 0 ]; then
-				err "$(ansi yellow)⚠ Unable to set permissions of backup file '$(ansi reset)$FILEPATH.$FILE_EXT$(ansi yellow)'.$(ansi reset)"
-			fi
-		done
+		elif [ "$CONF_XTRABACKUP_TYPE" = "incremental" ]; then
+			# incremental backup
+			log "├ $(ansi dim)Incremental binary backup$(ansi reset)"
+		fi
+		# tar directory
+		log "├ $(ansi dim)Tar'ing generated files$(ansi reset)"
+		tar cf "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar" "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
+		if [ $? -ne 0 ]; then
+			err "$(ansi yellow)⛔ Unable to tar directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi yellow)' to '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar$(ansi yellow)'.$(ansi reset)"
+			exit 1
+		fi
+		# compress file
+		log "├ $(ansi dim)Compress file$(ansi reset)"
+		if [ "$CONF_Z_TYPE" = "gzip" ]; then
+			FILE_EXT="tar.gz"
+		elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
+			FILE_EXT="tar.bz2"
+		else
+			FILE_EXT="tar.xz"
+		fi
+		echo "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar" | xargs $CONF_Z_TYPE
+		if [ $? -ne 0 ]; then
+			err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
+			FILE_EXT="tar"
+		fi
+		# remove directory
+		rm -rf "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data"
+		if [ $? -eq 0 ]; then
+			err "$(ansi yellow)⛔ Unable to delete directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data$(ansi yellow)'.$(ansi reset)"
+			exit 1
+		fi
+		# add to list
+		FILESLIST="$FILESLIST $CONF_BACKUP_PATH/$CURRENT_PATH/database_data.$FILE_EXT"
+		# change file rights
+		chmod 600 "$FILEPATH.$FILE_EXT"
 		log "└ $(ansi green)Done$(ansi reset)"
 	fi
 	# encryption
@@ -786,9 +893,6 @@ main_exec() {
 	fi
 	# change cheksum file rights
 	chmod 600 "$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums"
-	if [ $? -ne 0 ]; then
-		err "$(ansi yellow)⚠ Unable to set permissions of checksum file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/sha256sums$(ansi yellow)'.$(ansi reset)"
-	fi
 	log "└ $(ansi green)Done$(ansi reset)"
 	# archive on Amazon Glacier
 	if [ "$CONF_AWS_GLACIER" = "yes" ]; then

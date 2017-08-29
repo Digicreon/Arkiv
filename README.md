@@ -17,21 +17,20 @@ Arkiv was created by Amaury Bouchard <amaury@amaury.net>.
 Table of contents
 -----------------
 
-```
-1. How it works
-   1.1 General Idea
-   1.2 Steb-by-step
-2. Installation
-   2.1 Prerequisites
-   2.2 Source installation
-   2.3 Configuration
-3. Frequently Asked Questions
-   3.1 Cost and license
-   3.2 Configuration
-   3.3 Output and log
-   3.4 Crontab
-   3.5 Miscellaneous
-```
+1. [How it works](#1-how-it-works)
+   1. [General Idea](#11-general-idea)
+   2. [Steb-by-step](#12-step-by-step)
+2. [Installation](#2-installation)
+   1. [Prerequisites](#21-prerequisites)
+   2. [Source installation](#22-source-installation)
+   3. [Configuration](#23-configuration)
+3. [Frequently Asked Questions](#3-frequently-asked-questions)
+   1. [Cost and license](#31-cost-and-license)
+   2. [Configuration](#32-configuration)
+   3. [Output and log](#33-output-and-log)
+   4. [Database backup](#34-database-backup)
+   5. [Crontab](#35-crontab)
+   6. [Miscellaneous](#36-miscellaneous)
 
 
 ************************************************************************
@@ -97,11 +96,19 @@ Use this command to do it (you can adapt the destination path):
 ```
 
 #### 2.1.3 MySQL
-If you want to backup MySQL databases, you have to install the [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) tool.
+If you want to backup MySQL databases, you have to install [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) or [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).
 
-To install it on Ubuntu:
+To install `mysqldump` on Ubuntu:
 ```shell
 # apt-get install mysql-client
+```
+
+To install `xtrabackup` on Ubuntu (see [documentation](https://www.percona.com/doc/percona-xtrabackup/2.4/installation/apt_repo.html)):
+```shell
+# wget https://repo.percona.com/apt/percona-release_0.1-4.$(lsb_release -sc)_all.deb
+# dpkg -i percona-release_0.1-4.$(lsb_release -sc)_all.deb
+# apt-get update
+# apt-get install percona-xtrabackup-24
 ```
 
 #### 2.1.4 Amazon Web Services
@@ -273,7 +280,25 @@ Unlike `more` and `tail`, `less` doesn't interpret ANSI text formatting commands
 To enable it, you have to use the option `-r` or `-R`.
 
 
-### 3.4 Crontab
+### 3.4 Database backup
+
+#### What kind of database backups are available?
+Arkiv could generate two kinds of database backups:
+- SQL backups created using [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html).
+- Binary backups using [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).
+
+#### Which databases and table engines could be backed up?
+If you choose SQL backups (using `mysqldump`), Arkiv can manage MySQL, MariaDB and Percona Server.
+
+If you choose binary backups (using `xtrabackup`), Arkiv can handle:
+- MySQL (5.1 and above) or MariaDB, with InnoDB, MyISAM and XtraDB tables.
+- Percona Server with XtraDB tables.
+
+#### Are binary backups prepared for restore?
+No. Binary backups are done using `xtrabackup --backup`. The `xtrabackup --prepare` step is not done to save time and space. You will have to do it when you want to restore a database.
+
+
+### 3.5 Crontab
 
 #### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
 You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
@@ -307,7 +332,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Add a `MAILTO` environment variable at the beginning of your Crontab. See the previous answer.
 
 
-### 3.5 Miscellaneous
+### 3.6 Miscellaneous
 
 #### How to report bugs?
 [Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)
