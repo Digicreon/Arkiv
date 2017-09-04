@@ -104,7 +104,7 @@ Use this command to do it (you can adapt the destination path):
 ```
 
 #### 2.1.3 MySQL
-If you want to backup MySQL databases, you have to install [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) or [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).i
+If you want to backup MySQL databases, you have to install [`mysqldump`](https://dev.mysql.com/doc/refman/5.7/en/mysqldump.html) or [`xtrabackup`](https://www.percona.com/software/mysql-database/percona-xtrabackup).
 
 To install `mysqldump` on Ubuntu:
 ```shell
@@ -139,16 +139,22 @@ Configure the program (you will be asked for the AWS user's access key and secre
 
 ### 2.2 Source Installation
 
-Clone the GitHub repository:
+Get the last version:
 ```shell
-# git clone https://github.com/Amaury/Arkiv
+# wget https://github.com/Amaury/Arkiv/archive/0.9.0.zip
+# unzip Arkiv-0.9.0.zip
+
+or
+
+# wget https://github.com/Amaury/Arkiv/archive/0.9.0.tar.gz
+# tar xzf Arkiv-0.9.0.tar.gz
 ```
 
 
 ### 2.3 Configuration
 
 ```shell
-# cd Arkiv
+# cd Arkiv-0.9.0
 # ./arkiv config
 ```
 
