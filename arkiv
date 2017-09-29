@@ -151,7 +151,7 @@ log() {
 err() {
 	CURDATE=`date +"%Y-%m-%d %H:%M:%S%:z"`
 	STR="$(ansi dim)[$CURDATE]$(ansi reset) $1"
-	# write to stdout unless it is disabled
+	# write to stderr unless it is disabled
 	if [ "$OPT_NOSTDOUT" != "1" ]; then
 		(>&2 echo "$STR")
 	fi
