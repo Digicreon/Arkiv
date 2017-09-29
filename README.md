@@ -314,7 +314,7 @@ If you choose binary backups (using `xtrabackup`), Arkiv can handle:
 - MySQL (5.1 and above) or MariaDB, with InnoDB, MyISAM and XtraDB tables.
 - Percona Server with XtraDB tables.
 
-Note that MyISAM can't be incrementally backed up. There are copied entirely each time an incremental backup is performed.
+Note that MyISAM tables can't be incrementally backed up. They are copied entirely each time an incremental backup is performed.
 
 #### Are binary backups prepared for restore?
 No. Binary backups are done using `xtrabackup --backup`. The `xtrabackup --prepare` step is not done to save time and space. You will have to do it when you want to restore a database (see below).
