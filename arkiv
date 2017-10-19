@@ -129,7 +129,7 @@ log() {
 	if [ "$1" = "-n" ]; then
 		STR="$2"
 	else
-		STR="$(ansi dim)[$(date +"%Y-%m-%d %H:%M:%S%:z")]$(ansi reset) $TXT"
+		STR="$(ansi dim)[$(date +"%Y-%m-%d %H:%M:%S%:z")]$(ansi reset) $1"
 	fi
 	# write to stdout unless it is disabled
 	if [ "$OPT_NOSTDOUT" != "1" ]; then
@@ -478,7 +478,7 @@ main_config() {
 			echo " $(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi red)'. ABORT$(ansi reset)"
 			exit 1
 		fi
-		chmod 600 "$CONF_BACKUP_PATH"
+		chmod 700 "$CONF_BACKUP_PATH"
 		if [ $? -ne 0 ]; then
 			echo " $(ansi red)⛔ Unable to change permissions of directory '$(ansi reset)$CONF_BACKUP_PATH$(ansi red)'. ABORT$(ansi reset)"
 			exit 1
@@ -727,7 +727,7 @@ main_exec() {
 		err "$(ansi red)⛔ Unable to create directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi red)'. ABORT$(ansi reset)"
 		exit 1
 	fi
-	chmod -R 600 "$CONF_BACKUP_PATH/$CURRENT_PATH"
+	chmod -R 700 "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	log "└ $(ansi green)Done$(ansi reset)"
 	# list of created files
 	FILESLIST=""
@@ -791,11 +791,11 @@ main_exec() {
 			fi
 			chmod 700 "$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql"
 			# loop on databases
-			for DB_NAME in "$CONF_MYSQL_DATABASES"; do
+			for DB_NAME in $CONF_MYSQL_DATABASES; do
 				# dump MySQL database
 				log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
 				FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql/$DB_NAME"
-				MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables -routines -events $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
+				MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables -routines $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 				if [ $? -ne 0 ]; then
 					err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
 					continue
@@ -899,7 +899,9 @@ main_exec() {
 	fi
 	# encryption
 	FILESLIST_RESULT=""
-	if [ "$CONF_ENCRYPT" != "" ]; then
+	if [ "$CONF_ENCRYPT" = "" ]; then
+		FILESLIST_RESULT="$FILESLIST"
+	else
 		for FILE in $FILESLIST; do
 			if [ "$CONF_ENCRYPT" = "key" ]; then
 				openssl enc -aes-256-cbc -e -salt -in "$FILE" -out "$FILE.encrypt" -pass file:$CONF_ENCRYPT_KEY
