@@ -620,7 +620,11 @@ main_config() {
 			echo " $(ansi dim)Give dates in Crontab format, like \"1,11,21,31\" or \"1-5,11-15,20-25\" or \"*/2\".$(ansi reset)"
 			echo " $(ansi dim)Use \"*\" (default value) to launch Arkiv every day.$(ansi reset)"
 			read ANSWER
-			CRON_DAYS=$(trim "$ANSWER")
+			if [ "$ANSWER" = "*" ]; then
+				CRON_DAYS="*"
+			else
+				CRON_DAYS=$(trim "$ANSWER")
+			fi
 			if [ "$CRON_DAYS" = "" ]; then
 				CRON_DAYS="*"
 			fi
@@ -629,7 +633,11 @@ main_config() {
 			echo " $(ansi dim)Give hours in Crontab format, like \"0,4,8,12,16,20\" or \"*/4\" or \"0-4,12-16\".$(ansi reset)"
 			echo " $(ansi dim)Use \"*\" (default value) to launch Arkiv every hour.$(ansi reset)"
 			read ANSWER
-			CRON_HOURS=$(trim "$ANSWER")
+			if [ "$ANSWER" = "*" ]; then
+				CRON_HOURS="*"
+			else
+				CRON_HOURS=$(trim "$ANSWER")
+			fi
 			if [ "$CRON_HOURS" = "" ]; then
 				CRON_HOURS="*"
 			fi
