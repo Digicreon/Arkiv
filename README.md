@@ -141,20 +141,20 @@ Configure the program (you will be asked for the AWS user's access key and secre
 
 Get the last version:
 ```shell
-# wget https://github.com/Amaury/Arkiv/archive/0.9.1.zip
-# unzip Arkiv-0.9.1.zip
+# wget https://github.com/Amaury/Arkiv/archive/0.9.2.zip
+# unzip Arkiv-0.9.2.zip
 
 or
 
-# wget https://github.com/Amaury/Arkiv/archive/0.9.1.tar.gz
-# tar xzf Arkiv-0.9.1.tar.gz
+# wget https://github.com/Amaury/Arkiv/archive/0.9.2.tar.gz
+# tar xzf Arkiv-0.9.2.tar.gz
 ```
 
 
 ### 2.3 Configuration
 
 ```shell
-# cd Arkiv-0.9.1
+# cd Arkiv-0.9.2
 # ./arkiv config
 ```
 
