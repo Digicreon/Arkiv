@@ -944,7 +944,7 @@ main_exec() {
 	# archive on Amazon S3
 	if [ "$CONF_AWS_S3" = "yes" ]; then
 		log "$(ansi bold)Archiving on Amazon S3$(ansi reset)"
-		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_PATH s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH --quiet
+		aws s3 sync $CONF_BACKUP_PATH/$CURRENT_PATH s3://$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH --quiet --storage-class STANDARD_IA
 		if [ $? -ne 0 ]; then
 			err "$(ansi yellow)⚠ Unable to copy directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi yellow)' to Amazon S3 '$(ansi reset)$CONF_S3_BUCKET/$CONF_LOCAL_HOSTNAME/$CURRENT_PATH$(ansi yellow)'.$(ansi reset)"
 		fi
