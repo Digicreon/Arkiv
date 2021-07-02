@@ -1,15 +1,14 @@
 #!/bin/bash
 
-# ARKIV
+# ARKIV-CONFIG-GEN
 #
-# Simple file archiver, designed to backup local files and MySQL databases and archive them on Amazon S3.
+# Configuration generator for Arkiv.
 #
 # Source code and documentation: https://github.com/Amaury/Arkiv
 #
-# © 2017, Amaury Bouchard <amaury@amaury.net>
+# © 2018, Amaury Bouchard <amaury@amaury.net>
 #
-# @see	Getopts: https://stackoverflow.com/questions/402377/using-getopts-in-bash-shell-script-to-get-long-and-short-command-line-options/7680682#7680682
-# @see	Encryption: https://superuser.com/questions/724986/how-to-use-password-argument-in-via-command-line-to-openssl-for-decryption
+# Licensed under the terms of the MIT license (see LICENSE file).
 
 # ########## GLOBAL VARIABLES ##########
 
@@ -17,110 +16,17 @@
 # @see	main_usage()
 CONFIG_FILE_PATH="~/.arkiv"
 
-# Path to the log file
-# @see	main_usage()
-OPT_LOG_PATH=""
+# Path to the Dispak installation root directory.
+# @type string
+DPK_ROOT="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
 
-# no-ansi mode
-# @see	main_usage()
-OPT_NOANSI=0
 
-# no-stdout mode
-# @see	main_usage()
-OPT_NOSTDOUT=0
-
-# no-stderr mode
-# @see	main_usage()
-OPT_NOSTDERR=0
-
-# Write to syslog option.
-# @see	main_usage()
-OPT_SYSLOG=0
+# ########## INCLUDE SOURCE FILES ##########
+# functions files
+. "$DPK_ROOT/lib/utils.sh"
 
 
 # ########## FUNCTIONS ##########
-
-# trim()
-# Remove spaces at the beginning and at the end of a character string.
-# @param	string	The string to trim.
-trim() {
-	RESULT=$(echo "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-	echo $RESULT
-}
-
-# filenamize()
-# Convert a string that contains a path to a file, and return a string suitable as a file name.
-# Replace slashes and spaces by dashes.
-# @param	string	The string to modify.
-filenamize() {
-	RESULT=$(echo "$1" | sed 's/[[:space:]]\+/-/g' | sed 's/\//-/g' | sed -e 's/^-*//' -e 's/-*$//' | sed 's/-\+/-/g')
-	echo $RESULT
-}
-
-# ansi()
-# Write ANSI-compatible statements.
-# @param	string	Command:
-#			- reset: Remove all decoration.
-#			- bold:  Write text in bold.
-#			- dim:   Write faint text.
-#			- rev:   Write text in reverse video. Could take another parameter with the background color.
-#			- under: Write underlined text.
-#			- black, red, green, yellow, blue, magenta, cyan, white: Change the text color.
-ansi() {
-	if [ "$TERM" = "" ] || [ "$OPT_NOANSI" = "1" ]; then
-		return
-	fi
-	if ! type tput > /dev/null; then
-		return
-	fi
-	case "$1" in
-		"reset")	tput sgr0
-		;;
-		"bold")		tput bold
-		;;
-		"dim")		tput dim
-		;;
-		"rev")
-			case "$2" in
-				"black")	tput setab 0
-				;;
-				"red")		tput setab 1
-				;;
-				"green")	tput setab 2
-				;;
-				"yellow")	tput setab 3
-				;;
-				"blue")		tput setab 4
-				;;
-				"magenta")	tput setab 5
-				;;
-				"cyan")		tput setab 6
-				;;
-				"white")	tput setab 7
-				;;
-				*)		tput rev
-			esac
-		;;
-		"under")	tput smul
-		;;
-		"black")	tput setaf 0
-		;;
-		"red")		tput setaf 1
-		;;
-		"green")	tput setaf 2
-		;;
-		"yellow")	tput setaf 3
-		;;
-		"blue")		tput setaf 4
-		;;
-		"magenta")	tput setaf 5
-		;;
-		"cyan")		tput setaf 6
-		;;
-		"white")	tput setaf 7
-		;;
-	esac
-}
 
 # log()
 # Write a character string with the current date before it to stdout or to the log file.
@@ -795,7 +701,7 @@ main_exec() {
 				# dump MySQL database
 				log "├ $(ansi dim)Backup database '$(ansi reset)$DB_NAME$(ansi bold)'$(ansi reset)"
 				FILEPATH="$CONF_BACKUP_PATH/$CURRENT_PATH/database_sql/$DB_NAME"
-				MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --no-tablespaces --skip-lock-tables --routines $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
+				MYSQL_PWD="$CONF_MYSQL_PWD" mysqldump -u $CONF_MYSQL_USER --single-transaction --skip-lock-tables --routines $DB_NAME -h $CONF_MYSQL_HOST > "$FILEPATH.sql"
 				if [ $? -ne 0 ]; then
 					err "$(ansi yellow)⚠ Unable to dump database '$(ansi reset)$DB_NAME$(ansi yellow)'.$(ansi reset)"
 					continue
