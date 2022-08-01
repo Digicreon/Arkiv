@@ -85,7 +85,7 @@ The same kind of configuration could be defined for Amazon S3 archives.
 Several tools are needed by Arkiv to work correctly. They are usually installed by default on every Unix/Linux distributions.
 - A not-so-old [`bash`](https://en.wikipedia.org/wiki/Bash_(Unix_shell)) Shell interpreter located on `/bin/bash` (mandatory)
 - [`tar`](https://en.wikipedia.org/wiki/Tar_(computing)) for files concatenation (mandatory)
-- [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2) or [`xz`](https://en.wikipedia.org/wiki/Xz) for compression (at least one)
+- [`gzip`](https://en.wikipedia.org/wiki/Gzip), [`bzip2`](https://en.wikipedia.org/wiki/Bzip2), [`xz`](https://en.wikipedia.org/wiki/Xz) or [`zstd`](https://en.wikipedia.org/wiki/Zstd) for compression (at least one)
 - [`openssl`](https://en.wikipedia.org/wiki/OpenSSL) for encryption (optional)
 - [`sha256sum`](https://en.wikipedia.org/wiki/Sha256sum) for checksums computation (mandatory)
 - [`tput`](https://en.wikipedia.org/wiki/Tput) for [ANSI text formatting](https://en.wikipedia.org/wiki/ANSI_escape_code) (optional: can be manually deactivated; automatically deactivated if not installed)
@@ -190,18 +190,19 @@ You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws
 ### 3.2 Configuration
 
 #### How to choose the compression type?
-You can use one of the three common compression tools (`gzip`, `bzip2`, `xz`).
+You can use one of the three common compression tools (`gzip`, `bzip2`, `xz`, `zstd`).
 
 Usually, you can follow these guidelines:
-- Use `gzip` if you want the best compression and decompression speed.
+- Use `zstd` if you want the best compression and decompression speed.
 - Use `xz` if you want the best compression ratio.
-- Use `gzip` or `bzip2` if you want the best portability (`xz` is younger and less widespread).
+- Use `gzip` or `bzip2` if you want the best portability (`xz` and `zstd` are younger and less widespread).
 
 Here are some helpful links:
 - [Gzip vs Bzip2 vs XZ Performance Comparison](https://www.rootusers.com/gzip-vs-bzip2-vs-xz-performance-comparison/)
 - [Quick Benchmark: Gzip vs Bzip2 vs LZMA vs XZ vs LZ4 vs LZO](https://catchchallenger.first-world.info/wiki/Quick_Benchmark:_Gzip_vs_Bzip2_vs_LZMA_vs_XZ_vs_LZ4_vs_LZO)
+- [Zstandard presentation and benchmarks](https://facebook.github.io/zstd/)
 
-The default usage is `xz`, because a reduced file size means faster file transfers over a network.
+The default usage is `zstd`, because it has the best compression/speed ratio.
 
 #### I choose simple mode configuration (one backup per day, every day). Why is there a directory called "00:00" in the backup directory of the day?
 This directory means that your Arkiv backup process is launched at midnight.

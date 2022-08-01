@@ -316,14 +316,14 @@ main_config() {
 		CONF_LOCAL_HOSTNAME="$HOST"
 	fi
 	# compression type
-	read -p " $(ansi yellow)Compression type? (gzip|bzip2|xz) [xz]$(ansi reset) " ANSWER
+	read -p " $(ansi yellow)Compression type? (gzip|bzip2|xz|zstd) [zstd]$(ansi reset) " ANSWER
 	CONF_Z_TYPE=$(trim "$ANSWER")
-	if [ "$CONF_Z_TYPE" != "gzip" ] && [ "$CONF_Z_TYPE" != "bzip2" ]; then
-		if [ "$CONF_Z_TYPE" != "" ] && [ "$CONF_Z_TYPE" != "xz" ]; then
+	if [ "$CONF_Z_TYPE" != "gzip" ] && [ "$CONF_Z_TYPE" != "bzip2" ] && [ "$CONF_Z_TYPE" != "xz" ]; then
+		if [ "$CONF_Z_TYPE" != "" ] && [ "$CONF_Z_TYPE" != "zstd" ]; then
 			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
 			exit 1
 		fi
-		CONF_Z_TYPE="xz"
+		CONF_Z_TYPE="zstd"
 	fi
 	# encryption
 	read -p " $(ansi yellow)Do you want to encrypt data? [y/N]$(ansi reset) " ANSWER
@@ -752,11 +752,16 @@ main_exec() {
 				FILE_EXT="tar.gz"
 			elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
 				FILE_EXT="tar.bz2"
-			else
+			elif [ "$CONF_Z_TYPE" = "xz" ]; then
 				FILE_EXT="tar.xz"
+			else
+				FILE_EXT="tar.zst"
 			fi
-			echo "$FILEPATH.tar" | xargs $CONF_Z_TYPE
-			if [ $? -ne 0 ]; then
+			echo "$FILEPATH.tar" | xargs $CONF_Z_TYPE -q
+			if [ $? -eq 0 ]; then
+				# remove the source file (zstd program doesn't remove the source file)
+				rm -f "$FILEPATH.tar"
+			else
 				err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.tar$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
 				FILE_EXT="tar"
 			fi
@@ -806,11 +811,16 @@ main_exec() {
 					FILE_EXT="sql.gz"
 				elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
 					FILE_EXT="sql.bz2"
-				else
+				elif [ "$CONF_Z_TYPE" = "xz" ]; then
 					FILE_EXT="sql.xz"
+				else
+					FILE_EXT="sql.zst"
 				fi
-				echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE
-				if [ $? -ne 0 ]; then
+				echo "$FILEPATH.sql" | xargs $CONF_Z_TYPE -q
+				if [ $? -eq 0 ]; then
+					# remove the source file (zstd program doesn't remove the source file)
+					rm -f "$FILEPATH.sql"
+				else
 					err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$FILEPATH.sql$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
 					FILE_EXT="sql"
 				fi
@@ -877,10 +887,12 @@ main_exec() {
 			FILE_EXT="tar.gz"
 		elif [ "$CONF_Z_TYPE" = "bzip2" ]; then
 			FILE_EXT="tar.bz2"
-		else
+		elif [ "$CONF_Z_TYPE" = "xz" ]; then
 			FILE_EXT="tar.xz"
+		else
+			FILE_EXT="tar.zst"
 		fi
-		echo "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar" | xargs $CONF_Z_TYPE
+		echo "$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar" | xargs $CONF_Z_TYPE -q
 		if [ $? -ne 0 ]; then
 			err "$(ansi yellow)⚠ Unable to compress file '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH/database_data.tar$(ansi yellow)' using '$CONF_Z_TYPE'.$(ansi reset)"
 			FILE_EXT="tar"
