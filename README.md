@@ -27,10 +27,11 @@ Table of contents
 3. [Frequently Asked Questions](#3-frequently-asked-questions)
    1. [Cost and license](#31-cost-and-license)
    2. [Configuration](#32-configuration)
-   3. [Output and log](#33-output-and-log)
-   4. [Database backup](#34-database-backup)
-   5. [Crontab](#35-crontab)
-   6. [Miscellaneous](#36-miscellaneous)
+   3. [Files backup](#33-files-backup)
+   4. [Output and log](#34-output-and-log)
+   5. [Database backup](#35-database-backup)
+   6. [Crontab](#36-crontab)
+   7. [Miscellaneous](#37-miscellaneous)
 
 
 ************************************************************************
@@ -190,7 +191,7 @@ You can use the [Amazon Web Services Calculator](https://calculator.s3.amazonaws
 ### 3.2 Configuration
 
 #### How to choose the compression type?
-You can use one of the three common compression tools (`gzip`, `bzip2`, `xz`, `zstd`).
+You can use one of the four common compression tools (`gzip`, `bzip2`, `xz`, `zstd`).
 
 Usually, you can follow these guidelines:
 - Use `zstd` if you want the best compression and decompression speed.
@@ -265,7 +266,21 @@ When you send a file to Amazon Glacier, you get back an *archiveId* (file's uniq
 If the *archiveId* is lost, you will not be able to get the file back from Amazon Glacier. An archived file that you can't restore is useless. Even if it's possible to get the list of archived files from Amazon Glacier, it's a slow process; it's more flexible to store *archive identifiers* in Amazon S3 (and the cost to store them is insignificant).
 
 
-### 3.3 Output and log
+### 3.3 Files backup
+
+#### How to exclude files and directories from archives?
+Arkiv provides several ways to exclude content from archives.
+
+First of all, it follows the [CACHEDIR.TAG](https://bford.info/cachedir/) standard. If a directory contains a `CACHEDIR.TAG` file, it will be added to the archive, as well as the `CACHEDIR.TAG` file, but not its other files and subdirectories.
+
+If you want to exclude the content of a directory in a way similar of the previous one, but you don't want to create a `CACHEDIR.TAG` file (to avoid exclusion of the directory by other programs), you can create an empty `.arkiv-exclude` file in the directory. The directory and the `.arkiv-exclude` will be added to the archive (to keep track of the folder, with the information of the subcontent exclusion), but not the other files and subdirectories contained in the given directory.
+
+If you want to exclude specific files of a directory, you can create a `.arkiv-ignore` file in the directory, and write a list of exclusion patterns into it. These patterns will be used to exclude files and subdirectories directly stored in the given directory.
+
+If you create a `.arkiv-ignore-recursive` file in a directory, patterns will be read from this file to define recursive exclusions in the given directory and all its subdirectories.
+
+
+### 3.4 Output and log
 
 #### Is it possible to execute Arkiv without any output on STDOUT and/or STDERR?
 Yes, you just have to add some options on the command line:
@@ -295,7 +310,7 @@ Unlike `more` and `tail`, `less` doesn't interpret ANSI text formatting commands
 To enable it, you have to use the option `-r` or `-R`.
 
 
-### 3.4 Database backup
+### 3.5 Database backup
 
 #### What kind of database backups are available?
 Arkiv could generate two kinds of database backups:
@@ -399,7 +414,7 @@ Once every backups have been merged, the process is the same than for a full bac
 ```
 
 
-### 3.5 Crontab
+### 3.6 Crontab
 
 #### On simple mode (one backup per day, every day at midnight), how to set up Arkiv to be executed at another time than midnight?
 You just have to edit the configuration file of the user's [Cron table](https://en.wikipedia.org/wiki/Cron):
@@ -433,7 +448,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Add a `MAILTO` environment variable at the beginning of your Crontab. See the previous answer.
 
 
-### 3.6 Miscellaneous
+### 3.7 Miscellaneous
 
 #### How to report bugs?
 [Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)

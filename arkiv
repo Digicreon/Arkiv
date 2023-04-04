@@ -742,7 +742,7 @@ main_exec() {
 			# remove '/' at the beginning of the path to save, and call tar with "-C /" options to avoid the warning "Removing leading `/' from member names"
 			SRC="$(echo "$SRC" | sed 's/^\///')"
 			# tar path
-			tar cf "$FILEPATH.tar" -C / "$SRC"
+			tar cf "$FILEPATH.tar" --exclude-caches --exclude-tag=.arkiv-exclude --exclude-ignore=.arkiv-ignore --exclude-ignore-recursive=.arkiv-ignore-recursive -C / "$SRC"
 			if [ $? -ne 0 ]; then
 				err "$(ansi yellow)⛔ Unable to tar path '$(ansi reset)/$SRC$(ansi yellow)' to '$(ansi reset)$FILEPATH.tar$(ansi yellow)'.$(ansi reset)"
 				exit 1
