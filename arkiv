@@ -149,7 +149,7 @@ log() {
 # Write a character string with the current date before it to stderr or to the log file.
 # @param	string	The text to write.
 err() {
-	CURDATE=`date +"%Y-%m-%d %H:%M:%S%:z"`
+	CURDATE=$(date +"%Y-%m-%d %H:%M:%S%:z")
 	STR="$(ansi dim)[$CURDATE]$(ansi reset) $1"
 	# write to stderr unless it is disabled
 	if [ "$OPT_NOSTDOUT" != "1" ]; then
@@ -306,7 +306,7 @@ main_config() {
 		exit 1
 	fi
 	# local host
-	HOST=`hostname`
+	HOST=$(hostname)
 	if [ "$HOST" = "" ]; then
 		HOST="localhost"
 	fi
@@ -599,7 +599,7 @@ main_config() {
 	# CRONTAB
 	echo
 	echo "$(ansi rev cyan) CRONTAB                 $(ansi reset)"
-	IN_CRONTAB=`crontab -l 2>/dev/null | grep arkiv | wc -l`
+	IN_CRONTAB=$(crontab -l 2>/dev/null | grep arkiv | wc -l)
 	if [ "$IN_CRONTAB" != "0" ]; then
 		read -p " $(ansi yellow)Arkiv is already defined in Crontab. Do you want to remove it and re-define it? [Y/n]$(ansi reset) " ANSWER
 	else
@@ -707,7 +707,7 @@ main_config() {
 # Backup files, archive and purge.
 main_exec() {
 	# get current hour (used during purge process)
-	CURRENT_HOUR=`date +"%H"`
+	CURRENT_HOUR=$(date +"%H")
 	# log
 	log -n "$(ansi rev)------------------------------------------------------------$(ansi reset)"
 	# configuration
@@ -720,7 +720,7 @@ main_exec() {
 		. "$(eval realpath "$CONFIG_FILE_PATH")"
 	fi
 	# create destination directory
-	CURRENT_PATH=`date +%Y-%m-%d/%H:00`
+	CURRENT_PATH=$(date +%Y-%m-%d/%H:00)
 	log "├ $(ansi dim)Create output directory '$(ansi reset)$CONF_BACKUP_PATH/$CURRENT_PATH$(ansi dim)'.$(ansi reset)"
 	mkdir -p "$CONF_BACKUP_PATH/$CURRENT_PATH"
 	if [ $? -ne 0 ]; then
@@ -778,7 +778,7 @@ main_exec() {
 		# fetch the list of databases if needed
 		if [ "$CONF_MYSQL_ALL_DATABASES" = "yes" ]; then
 			log "├ $(ansi dim)Fetch the list of databases$(ansi reset)"
-			CONF_MYSQL_DATABASES=`MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql`
+			CONF_MYSQL_DATABASES="$(MYSQL_PWD="$CONF_MYSQL_PWD" mysql -u $CONF_MYSQL_USER -h $CONF_MYSQL_HOST -e "SHOW DATABASES;" | tr -d "| " | grep -v -e Database -e _schema -e mysql -e sys)"
 			if [ $? -ne 0 ]; then
 				err "$(ansi yellow)⚠ Unable to fetch the list of databases from MySQL.$(ansi reset)"
 			fi
@@ -972,7 +972,7 @@ main_exec() {
 			# extract the delay part, like "2 days" or "3 weeks"
 			AGO=$(echo "$DELAY" | cut -d":" -f 1 | tr "_" " ")
 			# compute the date of the archive(s) to purge
-			PURGE_DATE=`date --date="$AGO ago" +%Y-%m-%d`
+			PURGE_DATE=$(date --date="$AGO ago" +%Y-%m-%d)
 			# check if the directory exists
 			if [ ! -d "$CONF_BACKUP_PATH/$PURGE_DATE" ]; then
 				continue;
@@ -1009,7 +1009,7 @@ main_exec() {
 					fi
 				done
 				# delete the whole day's directory if it's empty
-				NBR=`ls -l "$CONF_BACKUP_PATH/$PURGE_DATE" | tail -n +2 | wc -l`
+				NBR=$(ls -l "$CONF_BACKUP_PATH/$PURGE_DATE" | tail -n +2 | wc -l)
 				if [ $NBR -eq 0 ]; then
 					log "├ $(ansi dim)Delete '$(ansi reset)$CONF_BACKUP_PATH/$PURGE_DATE$(ansi dim)'."
 					rm -rf "$CONF_BACKUP_PATH/$PURGE_DATE"
@@ -1031,7 +1031,7 @@ main_exec() {
 			# extract the delay part, like "2 days" or "3 weeks"
 			AGO=$(echo "$DELAY" | cut -d":" -f 1 | tr "_" " ")
 			# compute the date of the archive(s) to purge
-			PURGE_DATE=`date --date="$AGO ago" +%Y-%m-%d`
+			PURGE_DATE=$(date --date="$AGO ago" +%Y-%m-%d)
 			# check if there is some specified hours
 			if [[ $DELAY != *:* ]]; then
 				# no specified hour, delete the whole day
