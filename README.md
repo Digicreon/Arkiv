@@ -155,7 +155,7 @@ or
 ### 2.3 Configuration
 
 ```shell
-# cd Arkiv-0.10.0
+# cd Arkiv-0.11.0
 # ./arkiv config
 ```
 
