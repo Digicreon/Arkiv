@@ -581,9 +581,14 @@ main_config() {
 	# write content
 	read -p " $(ansi yellow)Ready to erase file '$(ansi reset)$CONFIG_FILE_PATH$(ansi yellow)' and rebuild it? [y/N]$(ansi reset) " ANSWER
 	ANSWER=$(trim "$ANSWER")
-	if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ]; then
-		echo " $(ansi red)⛔ ABORT$(ansi reset)"
-		exit 1
+	if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ] && [ "$ANSWER" != "yes" ] && [ "$ANSWER" != "YES" ] && [ "$ANSWER" != "Yes" ]; then
+		echo
+		echo " $(ansi yellow)⚠️  Warning. You will lose the configuration you are editing.$(ansi reset)"
+		read -p " Do you really want to $(ansi red)abort$(ansi reset)? [Y/n] " ANSWER
+		if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ] && [ "$ANSWER" != "no" ] && [ "$ANSWER" != "NO" ] && [ "$ANSWER" != "No" ]; then
+			echo " $(ansi red)⛔ ABORT$(ansi reset)"
+			exit 1
+		fi
 	fi
 	RESULT="$(_create_config)"
 	echo "$RESULT" > "$(eval realpath "$CONFIG_FILE_PATH")"
@@ -607,8 +612,11 @@ main_config() {
 	fi
 	ANSWER=$(trim "$ANSWER")
 	if [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ] && [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
-		echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
-		exit 1
+		read -p " $(ansi yellow)⚠️  Bad value. Please try again [Y/n]$(ansi reset) " ANSWER
+		if [ "$ANSWER" != "" ] && [ "$ANSWER" != "y" ] && [ "$ANSWER" != "Y" ] && [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
+			echo " $(ansi red)⛔ Bad value. ABORT$(ansi reset)"
+			exit 1
+		fi
 	fi
 	if [ "$ANSWER" != "n" ] && [ "$ANSWER" != "N" ]; then
 		if [ "$SIMPLE_MODE" = "yes" ]; then
