@@ -142,13 +142,13 @@ Configure the program (you will be asked for the AWS user's access key and secre
 
 Get the last version:
 ```shell
-# wget https://github.com/Amaury/Arkiv/archive/0.10.0.zip
-# unzip Arkiv-0.10.0.zip
+# wget https://github.com/Amaury/Arkiv/archive/0.11.0.zip -O Arkiv-0.11.0.zip
+# unzip Arkiv-0.11.0.zip
 
 or
 
-# wget https://github.com/Amaury/Arkiv/archive/0.10.0.tar.gz
-# tar xzf Arkiv-0.10.0.tar.gz
+# wget https://github.com/Amaury/Arkiv/archive/0.11.0.tar.gz -O Arkiv-0.11.0.tar.gz
+# tar xzf Arkiv-0.11.0.tar.gz
 ```
 
 
