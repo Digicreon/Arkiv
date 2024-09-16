@@ -142,20 +142,20 @@ Configure the program (you will be asked for the AWS user's access key and secre
 
 Get the last version:
 ```shell
-# wget https://github.com/Amaury/Arkiv/archive/0.12.0.zip -O Arkiv-0.12.0.zip
-# unzip Arkiv-0.12.0.zip
+# wget https://github.com/Digicreon/Arkiv/archive/refs/heads/master.zip -O Arkiv-master.zip
+# unzip Arkiv-master.zip
 
 or
 
-# wget https://github.com/Amaury/Arkiv/archive/0.12.0.tar.gz -O Arkiv-0.12.0.tar.gz
-# tar xzf Arkiv-0.12.0.tar.gz
+# wget https://github.com/Digicreon/Arkiv/archive/refs/heads/master.zip -O Arkiv-master.tar.gz
+# unzip Arkiv-master.tar.gz
 ```
 
 
 ### 2.3 Configuration
 
 ```shell
-# cd Arkiv-0.12.0
+# cd Arkiv-master
 # ./arkiv config
 ```
 
@@ -451,7 +451,7 @@ Add a `MAILTO` environment variable at the beginning of your Crontab. See the pr
 ### 3.7 Miscellaneous
 
 #### How to report bugs?
-[Arkiv issues tracker](https://github.com/Amaury/Arkiv/issues)
+[Arkiv issues tracker](https://github.com/Digicreon/Arkiv/issues)
 
 #### Why is Arkiv compatible only with Bash interpreter?
 Because the `read` buitin command has a `-s` parameter for silent input (used for encryption passphrase and MySQL password input without showing them), unavailable on `dash` or `zsh` (for example).
