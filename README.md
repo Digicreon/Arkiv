@@ -142,20 +142,20 @@ Configure the program (you will be asked for the AWS user's access key and secre
 
 Get the last version:
 ```shell
-# wget https://github.com/Digicreon/Arkiv/archive/refs/heads/master.zip -O Arkiv-master.zip
-# unzip Arkiv-master.zip
+# wget https://github.com/Digicreon/Arkiv/archive/refs/tags/1.0.0.zip -O Arkiv-1.0.0.zip
+# unzip Arkiv-1.0.0.zip
 
 or
 
-# wget https://github.com/Digicreon/Arkiv/archive/refs/heads/master.zip -O Arkiv-master.tar.gz
-# unzip Arkiv-master.tar.gz
+# wget https://github.com/Digicreon/Arkiv/archive/refs/tags/1.0.0.tar.gz -O Arkiv-1.0.0.tar.gz
+# unzip Arkiv-1.0.0.tar.gz
 ```
 
 
 ### 2.3 Configuration
 
 ```shell
-# cd Arkiv-master
+# cd Arkiv-1.0.0
 # ./arkiv config
 ```
 
